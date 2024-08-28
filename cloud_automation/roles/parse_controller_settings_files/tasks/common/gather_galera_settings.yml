@@ -1,0 +1,35 @@
+---
+  - name: Get galera settings
+    shell: pcs status |tr -d '*'|grep '^[[:blank:]]*galera-bundle' |awk '{print $1, $4}'| sed 's/ [^-]*-/ /'
+    register: galera_settings
+    ignore_errors: true
+
+  - name: Combine galera results
+    set_fact:
+      galera_list: "{{ galera_settings.stdout.split()|list}}"
+
+  - name: Validating galera settings
+    set_fact:
+      expected_results: "{{(galera_check + controller_check) | difference(galera_list)}}"
+
+  - name: Validating galera settings
+    set_fact:
+      actual_results: "{{(galera_list) | difference(galera_check + controller_check)}}"
+
+  - name: Combine galera results to a dictionary
+    set_fact:
+      galera_settings_results: "{{ galera_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: galera
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - set_fact:
+      actual_results: []
+      expected_results: []

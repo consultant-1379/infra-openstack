@@ -1,0 +1,7 @@
+---
+
+- hosts: suse_clm
+  roles:
+    - common
+    - suse_openstack
+  user: ardana

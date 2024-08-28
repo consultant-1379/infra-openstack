@@ -1,0 +1,33 @@
+---
+# Tasks to get details of a server and associated projects. Looped in server_info.yml
+# Ross Monaghan
+# June 2020
+
+- name: Get proj_id from an instance
+  shell: source ~/overcloudrc ; openstack server show "{{ item }}" | grep 'project_id' | awk '{print $4}'
+  register: proj_id
+
+- name: Get server_name
+  shell: source ~/overcloudrc ; openstack server show "{{ item }}" | grep ' name ' | awk '{print $4}'
+  register: server_name
+
+- name: Get project_name
+  shell: source ~/overcloudrc ; openstack project show "{{ proj_id.stdout }}" | grep ' name ' | awk '{print $4}'
+  register: proj_name
+
+- name: Get users associated with project
+  shell: source ~/overcloudrc ; openstack user list --project "{{ proj_id.stdout }}" -f value -c Name | grep -v admin
+  register: users
+
+- name: Output information of one server
+  set_fact: 
+    server_info: |
+       SERVER_ID: {{ item }}
+       SERVER_NAME: {{ server_name.stdout }}
+       PROJECT_ID: {{ proj_id.stdout }}
+       PROJECT_NAME: {{ proj_name.stdout }}
+       USER_ID's: {{ users.stdout_lines }}
+
+- name: Append output to server list
+  set_fact: 
+    server_info_list: "{{ server_info_list + '\n' + server_info }}"

@@ -1,0 +1,64 @@
+heat_template_version: queens
+
+description: >
+  Compute pre-configuration hook
+
+parameters:
+  server:
+    type: string
+  DeployIdentifier:
+    type: string
+
+resources:
+  Multipathd:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: DeployIdentifier
+      config: {get_file: scripts/multipathd.sh}
+  MultipathdDeployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      actions: ['CREATE', 'UPDATE'] # Do this on CREATE and UPDATE as well
+      server: {get_param: server}
+      config: {get_resource: Multipathd}
+      input_values:
+        deploy_identifier: {get_param: DeployIdentifier}
+
+  vHostNetZeroCopy:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: DeployIdentifier
+      config: {get_file: scripts/vhost_net_zero_copy.sh}
+  vHostNetZeroCopyDeployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      actions: ['CREATE', 'UPDATE'] # Do this on CREATE and UPDATE as well
+      server: {get_param: server}
+      config: {get_resource: vHostNetZeroCopy}
+      input_values:
+        deploy_identifier: {get_param: DeployIdentifier}
+
+  LVMGlobalFilter:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: DeployIdentifier
+      config: {get_file: scripts/lvm_global_filter.sh}
+  LVMGlobalFilterDeployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      actions: ['CREATE', 'UPDATE'] # Do this on CREATE and UPDATE as well
+      server: {get_param: server}
+      config: {get_resource: LVMGlobalFilter}
+      input_values:
+        deploy_identifier: {get_param: DeployIdentifier}
+
+outputs:
+  deploy_stdout:
+    description: Deployment reference, used to trigger puppet apply on changes
+    value: {get_attr: [MultipathdDeployment, deploy_stdout]}

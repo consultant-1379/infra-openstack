@@ -1,0 +1,101 @@
+---
+- name: Enable send service user token
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+    section: service_user
+    option: send_service_user_token
+    value: True
+    backup: yes
+  with_items: "{{ osp_services }}"
+
+- name: Set service user auth type
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+    section: service_user
+    option: auth_type
+    value: password
+  with_items: "{{ osp_services }}"
+
+- name: Get auth url cinder
+  command: crudini --get /var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf keystone_authtoken auth_url
+  register: authurlcinder
+
+- name: "Ensure auth_url set {{authurlcinder.stdout}}"
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf"
+    section: service_user
+    option: auth_url
+    value: "{{authurlcinder.stdout}}"
+
+- name: Get auth url nova
+  command: crudini --get /var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf keystone_authtoken auth_url
+  register: authurlnova
+
+- name: "Ensure auth_url set {{authurlnova.stdout}}"
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf"
+    section: service_user
+    option: auth_url
+    value: "{{authurlnova.stdout}}"
+
+- name: Set service user
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+    section: service_user
+    option: username
+    value: "{{ item }}"
+  with_items: "{{ osp_services }}"
+
+- name: Get password cinder
+  command: crudini --get /var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf keystone_authtoken password
+  register: passcinder
+
+- name: "Ensure Cinder password set for service_user"
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf"
+    section: service_user
+    option: password
+    value: "{{passcinder.stdout}}"
+
+- name: Get password nova
+  command: crudini --get /var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf keystone_authtoken password
+  register: passnova
+
+- name: "Ensure Nova password set for service_user"
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf"
+    section: service_user
+    option: password
+    value: "{{passnova.stdout}}"
+
+- name: Set service user domain name
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+    section: service_user
+    option: user_domain_name
+    value: "Default"
+  with_items: "{{ osp_services }}"
+
+- name: Set service user project name
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+    section: service_user
+    option: project_name
+    value: "service"
+  with_items: "{{ osp_services }}"
+
+- name: Set service project domain name
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+    section: service_user
+    option: project_domain_name
+    value: "Default"
+  with_items: "{{ osp_services }}"
+
+- name: Set service user auth strategy
+  ini_file:
+    path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+    section: service_user
+    option: auth_strategy
+    value: keystone
+  with_items: "{{ osp_services }}"

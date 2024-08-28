@@ -1,0 +1,28 @@
+---
+  - name: gathering network settings
+    shell: netstat -rn
+    register: netstat_result
+    ignore_errors: yes
+
+  - name: check interfaces are present & configured correctly
+    shell: ip a s
+    register: interface_result
+    ignore_errors: yes
+
+# add error result to a file if there is an error
+  - block:
+    - name:  add results to file
+      shell: |
+         echo "
+         *********************** 
+         ***********************{{ inventory_hostname }}*******************
+         ***********************
+
+         ---netstat -rn result---
+         {{netstat_result.stdout}}
+
+         ---ip a s result---
+         {{interface_result.stdout}}" >> {{settings_store_path}}/{{ inventory_hostname }}-network_settings
+    ignore_errors: yes
+    connection: local
+    become: no

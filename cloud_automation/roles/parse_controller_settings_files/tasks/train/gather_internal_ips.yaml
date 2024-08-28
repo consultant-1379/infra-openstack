@@ -1,0 +1,5 @@
+---
+- name: Gather internal_api_ip
+  set_fact:
+    memcache_server: "{{memcache_server + [hostvars[item]['internal_api_ip'] + ':11211']}}"
+  loop: "{{groups['Controller']}}"

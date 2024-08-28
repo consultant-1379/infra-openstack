@@ -1,0 +1,25 @@
+---
+- include: queens/gather_nova_settings.yml
+  tags: gather_nova_settings_queens
+- include: queens/gather_cinder_settings.yml
+  tags: gather_cinder_settings_queens
+- include: queens/gather_keystone_settings.yml
+  tags: gather_keystone_settings_queens
+- include: queens/gather_heat_settings.yml
+  tags: gather_heat_settings_queens
+- include: queens/gather_glance_settings.yml
+  tags: gather_glance_settings_queens
+- include: queens/gather_neutron_settings.yml
+  tags: gather_neutron_settings_queens
+- include: queens/gather_swift_settings.yml
+  tags: gather_swift_settings_queens
+- include: queens/gather_haproxy_settings.yml
+  tags: gather_haproxy_settings_queens
+- include: queens/gather_mysql_settings.yml
+  tags: gather_mysql_settings_queens
+- include: common/gather_horizon_settings.yml
+  tags: gather_horizon_settings_queens
+- include: common/gather_cinder_backup_volume.yml
+  tags: gather_cinder_backup_volume_queens
+- include: common/gather_pcs_settings.yml
+  tags: gather_pcs_settings_queens

@@ -1,0 +1,24 @@
+---
+  - name: Get disk space used from compute and control nodes.
+    shell: df -h | grep /$ | awk '{print $5}'
+    register: results
+    ignore_errors: true
+
+  - name: Combine disk results to a dictionary
+    set_fact:
+      node_disk_space: "{{ node_disk_space | default({}) | combine({inventory_hostname:{'expected': ['disk space <' + max_limit | string + '%'], 'actual': ['disk space ' + results.stdout] }}) }}"
+    when: results.stdout[:-1]|int > max_limit
+
+# add error result to a file if there is an error
+  - block:
+    - name:  add section heading
+      shell: |
+         echo "
+         ****Disk usage section******" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - name: save general settings to file
+      shell: echo "{{results.stdout}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: results.stdout[:-1]|int > max_limit

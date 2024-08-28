@@ -1,0 +1,72 @@
+- name: "Create 66-flexos-storage-environment.yaml in {{ openstack_env_directory }}"
+  template:
+    src: 66-flexos-storage-environment.yaml.j2
+    dest: '{{ openstack_env_directory }}/66-flexos-storage-environment.yaml'
+    mode: 0644
+
+- name: "Create 30-flexos-storage-environment.yaml in {{ openstack_env_directory }}"
+  template:
+    src: 30-flexos-storage-environment.yaml.j2
+    dest: '{{ openstack_env_directory }}/30-flexos-storage-environment.yaml'
+    mode: 0644
+
+- name: "Create 30-glance-storage-environment.yaml.j2 in {{ openstack_env_directory }} only if cinder is backend for glance"
+  template:
+    src: 30-glance-storage-environment.yaml.j2
+    dest: '{{ openstack_env_directory }}/30-glance-storage-environment.yaml'
+    mode: 0644
+  when: glance_backend == "cinder"
+
+- name: "Copy compute custom preconfig heat templates to {{ openstack_overcloud_directory }}/extraconfig/pre-config/ for FlexOS client installation."
+  copy:
+    src: compute.yaml
+    dest: '{{ openstack_overcloud_directory }}/extraconfig/pre-config/compute.yaml'
+    mode: 0644
+  
+- name: "Create controller custom preconfig heat templates to {{ openstack_overcloud_directory }}/extraconfig/pre-config/ for FlexOS client installation."
+  template:
+    src: controller.yaml.j2
+    dest: '{{ openstack_overcloud_directory }}/extraconfig/pre-config/controller.yaml'
+    mode: 0644
+
+- name: "Copy flexos controller nic-configs to nic-configs directory"
+  template:
+    src: nic-configs/train-controller-flexos.yaml.j2
+    dest: "{{openstack_overcloud_directory}}/nic-configs/train-controller-flexos.yaml"
+  when: os_release == "train"
+
+- name: "Copy flexos compute nic-configs to nic-configs directory"
+  template:
+    src: nic-configs/train-compute-flexos.yaml.j2
+    dest: "{{openstack_overcloud_directory}}/nic-configs/train-compute-flexos.yaml"
+  when: os_release == "train"
+
+- name: "Copy flexos controller nic-configs to nic-configs directory"
+  template:
+    src: nic-configs/wallaby-controller-flexos.j2
+    dest: "{{openstack_overcloud_directory}}/nic-configs/wallaby-controller-flexos.j2"
+  when: os_release == "wallaby"
+
+- name: "Copy flexos compute nic-configs to nic-configs directory"
+  template:
+    src: nic-configs/wallaby-compute-flexos.j2
+    dest: "{{openstack_overcloud_directory}}/nic-configs/wallaby-compute-flexos.j2"
+  when: os_release == "wallaby"
+
+- name: "Copy vip to nic-configs directory"
+  template:
+    src: 21-vip-env.yaml.j2
+    dest: "{{openstack_env_directory}}/21-vip-env.yaml"
+  when: os_release == "wallaby"
+
+- name: "Create install_sdc.bsh script for FlexOS client installation"
+  template:
+    src: install_sdc.bsh.j2
+    dest: '{{ openstack_overcloud_directory }}/extraconfig/pre-config/scripts/install_sdc.bsh'
+    mode: 0755
+
+- name: Copy train or wallaby roles_data.yaml to the director
+  template:
+    src: '{{ "train-roles-data.yaml.j2" if os_release =="train" else "wallaby-roles-data.yaml.j2" }}'
+    dest: "{{openstack_overcloud_directory}}/roles-data.yaml"
+

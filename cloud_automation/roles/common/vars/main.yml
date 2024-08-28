@@ -1,0 +1,62 @@
+---
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname:
+# Once the signed SSL certificate has been received, copy it and its private key into roles/common/files
+# SSL Certificate file name for the cloud
+ssl_cert:
+# private key file name of the SSL Certificate
+ssl_cert_private_key:
+# # Intermediate CA certificate e.g. Digicert CA
+# intermediate_ca: digicert
+
+# SSL certificate
+# The root and intermediate certificates are included in roles/common/files
+root_ca_cert_content: "{{lookup('file','ssl/DigiCert_Global_Root_G2_CA.cer')}}"
+intermediate_ca_cert_content: "{{lookup('file','ssl/DigiCert_Global_G2_TLS_RSA_SHA256_2020_CA1.cer')}}"
+ssl_cert_content: "{{lookup('file',ssl_cert)}}"
+ssl_cert_private_key_content: "{{lookup('file',ssl_cert_private_key)}}"
+
+# DNS Servers
+dns_servers:
+  - 159.107.173.12
+  - 159.107.173.3
+# NTP Servers
+ntp_servers:
+  - 159.107.173.12
+  - 159.107.173.223
+
+timezone: Europe/Dublin
+
+chassis_halves:
+  top: 'number(BAY/CONNECTION/text())<=8'
+  bottom: 'number(BAY/CONNECTION/text())>8'
+
+blade_selector: '{{ chassis_halves[chassis_half] if chassis_half is defined else "*" }}'
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password:
+pm_type: pxe_ipmitool
+
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips: []
+
+# List of OA IP addresses for deployments where all servers are HPE blades or
+# where the controllers are Dell rack servers and the computes are HPE blades.
+# Dummy IP addresses have been entered below. Replace these with the correct addresses.
+oa_ips: []
+
+# For deployments where all servers are Dell rack servers
+ome:
+  ip:
+  user:
+  password:
+  # Group name in OME e.g. Cloud-12
+  group:
+  # ilo hostname of the director host
+  director_host:
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: False
+is_dell_deployment: False

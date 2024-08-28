@@ -1,0 +1,47 @@
+os_types:
+    - redhat
+    - suse
+chassis_half_choices:
+    - top
+    - bottom
+    - na
+network_types:
+    - '4'
+    - '6'
+    - 'dual'
+hardware_choices:
+    - dell
+    - hpe
+    - mix
+boot_mode_choices:
+    - legacy
+    - uefi
+storage_choices:
+    - vnx
+    - unity
+    - 3par
+    - ceph
+    - flexos
+san_protocol_choices:
+    - iSCSI
+    - FC
+glance_backend_choices: 
+    - file
+    - cinder
+    - swift
+    - rbd
+os_version_choices:
+    - queens
+    - train
+    - wallaby
+rhosp_release_choices:
+    - '16.1'
+    - '16.2'
+    - '17.1'
+rhel_os_choices:
+    - '8.2'
+    - '8.4'
+    - '9.2'
+sdc_agent_choices:
+    - '3.6'
+    - '4.5'

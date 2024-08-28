@@ -1,0 +1,34 @@
+---
+# Script to find all instances on a blade, list thier tenants and list all members of each tenant
+# Ross Monaghan
+# June 2020
+
+- hosts: director
+  gather_facts: False
+  vars:
+    server_info: []
+    server_info_list: ""
+    user_list: []
+    project_list: []
+  vars_prompt:
+    - name: hostname
+      prompt: "Enter hostname of server (ie. 'cloud4a-compute-std-0.localdomain')"
+      private: no
+  tasks:
+  - name: Get all instances on a blade
+    shell: source ~/overcloudrc ; openstack server list --all --host "{{ hostname }}" -f value -c ID
+    register: server_id_list
+
+  - name: Get the details of each instance
+    include_tasks: details_loop.yml
+    loop: "{{ server_id_list.stdout_lines }}"
+
+  - name: Show Output
+    debug: 
+      msg: "{{ server_info_list.split('\n') }}"
+
+  - name: Copy output to file
+    copy:
+      content: "{{ server_info_list }}"
+      dest: "{{ playbook_dir }}/server_info_output.txt" 
+    delegate_to: localhost

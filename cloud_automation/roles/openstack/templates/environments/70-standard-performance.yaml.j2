@@ -1,0 +1,54 @@
+parameter_defaults:
+
+  ComputeParameters:
+    # TODO
+    # amd_iommu=off due to filesystem corruption issue, once fixed remove the KernelArgs Parameter
+    # Card has been replaced, so no need to set amd_iommu=off
+    # KernelArgs: "amd_iommu=off"
+    # Memory Reservation
+    NovaReservedHostMemory: 16384
+    # disable tsx as per 11.3.4 of RHOSP 17.1 install doc - also 
+    # applicable to 16.2 as per 7.13 of RHOSP 16.2 install doc
+    KernelArgs: "tsx=off"
+    # Custom Kernel tunables
+    # Network Stack tuning
+    ExtraSysctlSettings:
+        net.core.rmem_max:
+          value: 134217728
+        net.core.wmem_max:
+          value: 134217728
+        net.ipv4.tcp_rmem:
+          value: '4096 87380 134217728'
+        net.ipv4.tcp_wmem:
+          value: '4096 87380 134217728'
+        net.ipv4.tcp_congestion_control:
+          value: htcp
+
+    # NOTE:  IF WE USE OVN WITH DVR, REMOVE CODE CHANGE
+    # adding wallaby check to safe guard against breaking train code
+    {% if os_release == "wallaby" and  use_ovn == "true" %}
+    NeutronBridgeMappings: "datacentre:br-ex"
+    {% endif %}
+
+
+  ComputeHAParameters:
+    # TODO
+    # amd_iommu=off due to filesystem corruption issue, once fixed remove the KernelArgs Parameter
+    # Card has been replaced, so no need to set amd_iommu=off
+    # KernelArgs: "amd_iommu=off"
+    # Memory Reservation
+    NovaReservedHostMemory: 16384
+    # Custom Kernel tunables
+    # Network Stack tuning
+    ExtraSysctlSettings:
+        net.core.rmem_max:
+          value: 134217728
+        net.core.wmem_max:
+          value: 134217728
+        net.ipv4.tcp_rmem:
+          value: '4096 87380 134217728'
+        net.ipv4.tcp_wmem:
+          value: '4096 87380 134217728'
+        net.ipv4.tcp_congestion_control:
+          value: htcp
+

@@ -1,0 +1,34 @@
+---
+- block:
+    - name:  add section heading
+      shell: |
+          echo "
+          ****services section******" >> {{ settings_store_path_controller }}{{ inventory_hostname }}-parsed-settings
+
+    - shell: echo "[EXPECTED_RESULTS:]" >> {{ settings_store_path_controller }}{{ inventory_hostname }}-parsed-settings
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path_controller }}/{{ inventory_hostname }}-parsed-settings
+      loop: "{{expected}}"
+
+    - shell: echo "[ACTUAL_RESULTS:]" >> {{ settings_store_path_controller }}{{ inventory_hostname }}-parsed-settings
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path_controller }}/{{ inventory_hostname }}-parsed-settings
+      loop: "{{actual}}"
+  when: inventory_hostname in groups['Controller']
+
+- block:
+    - name:  add section heading
+      shell: |
+          echo "
+          ****services section******" >> {{ settings_store_path_compute }}{{ inventory_hostname }}-parsed-settings
+
+    - shell: echo "[EXPECTED_RESULTS:]" >> {{ settings_store_path_compute }}{{ inventory_hostname }}-parsed-settings
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path_compute }}/{{ inventory_hostname }}-parsed-settings
+      loop: "{{expected}}"
+
+    - shell: echo "[ACTUAL_RESULTS:]" >> {{ settings_store_path_compute }}{{ inventory_hostname }}-parsed-settings
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path_compute }}/{{ inventory_hostname }}-parsed-settings
+      loop: "{{actual}}"
+  when: inventory_hostname in groups['Compute']

@@ -1,0 +1,97 @@
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  roles:
+    - common_settings
+    - init_cloud
+  vars_prompt:
+    - name: cloudname
+      prompt: "Enter the name of the cloud e.g. cloud7a. It should match the domain name i.e. cloud7a.athtem.eei.ericsson.se.\n"
+      private: no
+    - name: network_type
+      prompt: "Enter the network type for this cloud. Valid choices are {{network_types|join(', ')}}.\n"
+      private: no
+      default: '4'
+    - name: chassis_half
+      prompt: |
+        If the blades in this deployment only take up the top or bottom half of each chassis,
+          specify which half is used. Valid choices are {{chassis_half_choices| join(',')}}. (N/A for rack based deployments).
+      private: no
+      default: na
+    - name: hw_type
+      prompt: "Enter the hardware type (Valid choices are: {{hardware_choices| join(', ')}})"
+      private: no
+      default: hpe
+    - name: storage_type
+      prompt: "Enter the storage type (Valid choices are: {{storage_choices| join(', ')}})"
+      private: no
+    - name: san_protocol_type
+      prompt: "Enter the SAN protocol type (Valid choices are: {{san_protocol_choices| join(', ')}})"
+      private: no
+      default: iSCSI
+    - name: glance_backend_type
+      prompt: "Enter the Glance Backend type to use (Valid choices are: {{glance_backend_choices| join(', ')}})"
+      private: no
+      default: file
+    - name: all_rack_deployment
+      prompt: "Does this deployment contain HPE rack servers (yes/no)"
+      private: no
+      default: 'no'
+    - name: director_public_ip_cidr
+      prompt: "Enter the ggn public IPv4 address of the director VM including CIDR prefix. i.e. 10.10.10.12/24"
+      private: no
+    - name: undercloud_public_ip_cidr
+      prompt: "Enter the undercloud public IPv4(Provisioning) address including CIDR prefix. i.e. 10.10.10.12/24"
+      private: no
+    - name: openstack_version
+      prompt: "Enter the Openstack version {{ os_version_choices| join(', ') }}"
+      private: no
+    - name: rhel_release
+      prompt: "Enter the RedHat version {{ rhel_os_choices| join(', ') }}"
+      private: no
+    - name: rhosp_release
+      prompt: "Enter the RedHat Openstack version {{ rhosp_release_choices| join(', ') }}"
+      private: no
+    - name: sdc_agent_version
+      prompt: "Enter the sdc agent version {{ sdc_agent_choices| join(', ') }}"
+      private: no
+    - name: instance_ha_deployment
+      prompt: "Will this deployment have InstanceHA enabled ? (yes/no)"
+      private: no
+      default: 'no'
+
+  pre_tasks:
+      - name: Validate network type
+        assert:
+          that: network_type in network_types
+          fail_msg: "Network type '{{network_type}}' is incorrect. It must be one of {{network_types|join(',')}}"
+      - name: Validate chassis half
+        assert:
+          that: chassis_half in chassis_half_choices
+          fail_msg: "The chassis half parameter '{{chassis_half}}' is incorrect. It must be one of {{chassis_half_choices|join(',')}}."
+      - name: Validate hardware type
+        assert:
+          that: hw_type in hardware_choices
+          fail_msg: "Hardware type '{{hw_type}}' is invalid. It must be one of {{hardware_choices|join(', ')}}"
+      - name: Validate storage type
+        assert:
+          that: storage_type in storage_choices
+          fail_msg: "Storage type '{{storage_type}}' is invalid. It must be one of {{storage_choices|join(', ')}}"
+      - name: Validate SAN protocol type
+        assert:
+          that: san_protocol_type in san_protocol_choices
+          fail_msg: "SAN protocol type '{{san_protocol_type}}' is invalid. It must be one of {{san_protocol_choices|join(', ')}}"
+      - name: Validate Glance Backend type
+        assert:
+          that: glance_backend_type in glance_backend_choices
+          fail_msg: "SAN protocol type '{{glance_backend_type}}' is invalid. It must be one of {{glance_backend_choices|join(', ')}}"
+      - name:  Validate director IP address
+        assert:
+          that: director_public_ip_cidr |ipv4
+      - name:  Validate director IP address
+        assert:
+          that: undercloud_public_ip_cidr |ipv4
+      - name: Validate OpenStack version
+        assert:
+          that: openstack_version in os_version_choices
+          fail_msg: "Openstack version {{ openstack_version }} is invalid. It must be one of {{ os_version_choices| join(', ') }}"

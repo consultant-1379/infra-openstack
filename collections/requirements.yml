@@ -1,0 +1,5 @@
+---
+collections:
+  - name: openstack.cloud
+    version: 1.9.1
+  - name: community.crypto

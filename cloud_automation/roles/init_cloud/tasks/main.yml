@@ -1,0 +1,103 @@
+---
+- name: "Check if {{cloudname}} branch already exists"
+  shell: "git branch | grep -q {{cloudname}}"
+  register: branch_exists
+  ignore_errors: yes
+
+- name: "Create new branch {{cloudname}}"
+  shell: "git branch {{cloudname}}"
+  when: branch_exists.rc !=0
+
+- name: "Checkout the {{cloudname}} branch"
+  shell: "git checkout {{cloudname}}"
+
+- name: Set variables
+  set_fact:
+    chassis_split: '{{chassis_half is defined and chassis_half != "na" }}'
+    ipv4: '{{network_type == "4"}}'
+    ipv6: '{{network_type == "6"}}'
+    dual_stack: '{{network_type == "dual"}}'
+    cloud_dir: "{{topdir}}/redhat/{{cloudname}}"
+    inventory_file: "{{cloudname}}_inventory.yml"
+    all_racks: '{{all_rack_deployment == "yes"}}'
+    instance_ha: '{{instance_ha_deployment == "yes"}}'
+    director_public_ip: "{{director_public_ip_cidr|ipaddr('address')}}"
+    undercloud_public_ip_address: "{{undercloud_public_ip_cidr|ipaddr('address')}}"
+
+# this needs to be done in a separate task as you can't define a variable that uses a variable set in the same task 
+- name: Set director FQDN
+  set_fact:
+    director_fqdn: "{{ lookup('dig',director_public_ip + '/PTR','@' + dns_servers|first)[:-1] }}"
+
+- name: "Create {{cloudname}}  directory and terraform subdirectory"
+  file:
+    state: directory
+    path:  "{{ cloud_dir }}/terraform"
+    mode: 0755
+
+- name: Create inventory file
+  template:
+    src: inventory.yml.j2
+    dest: "{{ cloud_dir }}/{{ cloudname }}_inventory.yml"
+
+- name: "Create {{cloudname}}.yml variables"
+  template:
+    src: cloud_vars.yml.j2
+    dest: "{{ cloud_dir }}/{{ cloudname }}.yml"
+    mode: 0755
+
+- name: "Create deploy script"
+  template:
+    src: start_deploy.sh.j2
+    dest: "{{ cloud_dir }}/start_deploy.sh"
+    mode: 0755
+
+- name: Create CSR generation script
+  template:
+    src: csr.sh.j2
+    dest: "{{ cloud_dir }}/csr.sh"
+    mode: 0755
+
+- name: Create ssl_config.conf
+  template:
+    src: ssl_config.conf.j2
+    dest: "{{ cloud_dir }}/ssl_config.conf"
+
+- name: "Create passwords.yml"
+  copy:
+    src: passwords.yml
+    dest: "{{ cloud_dir }}"
+
+- name: "copy terraform files"
+  copy:
+    src: '{{ tf_file }}'
+    dest: "{{ cloud_dir }}/terraform"
+  loop:
+    - director_host.tf
+    - director.tfvars
+  loop_control:
+    loop_var: tf_file
+    label: '{{ tf_file }}'
+
+- name: Generate terraform files from templates
+  template:
+    src: '{{ tf_template }}'
+    dest: "{{ cloud_dir }}/terraform/{{ tf_template | regex_replace('.j2','') }}"
+  vars:
+    director_hostname: "{{ director_fqdn.split('.')|first }}"
+  loop:
+    - director.tf.j2
+    - director_net_config.j2
+  loop_control:
+    loop_var: tf_template
+    label: "{{ tf_template | regex_replace('.j2','') }}"
+
+- name: Create controller playbook for train
+  template:
+    src: controller.j2
+    dest: roles/openstack/files/playbooks/postinstall/train/controller.yaml
+
+- name: Create compute playbook for train
+  template:
+    src: compute.j2
+    dest: roles/openstack/files/playbooks/postinstall/train/compute.yaml

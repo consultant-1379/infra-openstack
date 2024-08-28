@@ -1,0 +1,11 @@
+---
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
+  - name: Include variables
+    include_vars: "{{ var_file }}"
+  - name: "Validate template  {{template}} using files from {{var_file}}"
+    template:
+      src: "{{template}}"
+      dest: "{{template.split('/')|last}}.check"

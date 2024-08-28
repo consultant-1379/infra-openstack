@@ -1,0 +1,48 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+resource_registry:
+  {% if san_type == 'unity' %}
+  {% if os_release == 'queens' %}
+  OS::TripleO::Services::CinderBackendDellEMCUnity: /usr/share/openstack-tripleo-heat-templates/puppet/services/cinder-backend-dellemc-unity.yaml
+  {% endif %}
+  {% if os_release == 'train' %}
+  OS::TripleO::Services::CinderBackendDellEMCUnity: /usr/share/openstack-tripleo-heat-templates/deployment/cinder/cinder-backend-dellemc-unity-puppet.yaml
+  {% endif %}
+  {% else %}
+  {% if os_release == 'queens' %}
+  OS::TripleO::Services::CinderBackendDellEMCVNX: /usr/share/openstack-tripleo-heat-templates/puppet/services/cinder-backend-dellemc-vnx.yaml
+  {% endif %}
+  {% if os_release == 'train' %}
+  OS::TripleO::Services::CinderBackendDellEMCVNX: /usr/share/openstack-tripleo-heat-templates/deployment/cinder/cinder-backend-dellemc-vnx-puppet.yaml
+  {% endif %}
+  {% endif %}
+
+parameter_defaults:
+{% if glance_backend == 'cinder' %}
+  GlanceBackend: {{ glance_backend }}
+{% endif %}
+  {% if os_release == 'train' %}
+  ContainerCinderVolumeImage: {{ director_ctlplane_fqdn }}:8787/dellemc/openstack-cinder-volume-dellemc-rhosp16:latest
+  {% endif %}
+  CinderEnableIscsiBackend: false
+  CinderEnableRbdBackend: false
+  CinderEnableNfsBackend: false
+  NovaEnableRbdBackend: false
+  {% if san_type == 'unity' %}
+  CinderEnableDellEMCUnityBackend: true
+  CinderDellEMCUnityBackendName: '{{san_backend_name| default("tripleo_dellemc_unity")}}'
+  CinderDellEMCUnitySanIp: '{{san_ip}}'
+  CinderDellEMCUnitySanLogin: '{{san_user}}'
+  CinderDellEMCUnitySanPassword: '{{san_password}}'
+  CinderDellEMCUnityStorageProtocol: '{{san_protocol}}'
+  CinderDellEMCUnityIoPorts: '{{san_ports}}'
+  CinderDellEMCUnityStoragePoolNames: '{{san_storage_pool}}'
+  {% else %}
+  CinderEnableDellEMCVNXBackend: true
+  CinderDellEMCVNXBackendName: '{{san_backend_name| default("tripleo_dellemc_vnx")}}'
+  CinderDellEMCVNXSanIp: '{{san_ip}}'
+  CinderDellEMCVNXSanLogin: '{{san_user}}'
+  CinderDellEMCVNXSanPassword: '{{san_password}}'
+  CinderDellEMCVNXStorageProtocol: '{{san_protocol}}'
+  CinderDellEMCVNXStoragePoolNames: '{{san_storage_pool}}'
+  CinderDellEMCVNXStorageSecurityFileDir: ''
+  {% endif %}

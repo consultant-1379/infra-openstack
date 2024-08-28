@@ -1,0 +1,48 @@
+---
+# empty list to fill with nova results
+nova_results: []
+
+# checks to compare with gathered nova settings and containers
+nova_check:
+  - cpu_allocation_ratio=4.0
+  - ram_allocation_ratio=1.5
+  - disk_allocation_ratio=4.0
+  - block_device_allocate_retries_interval=3
+  - block_device_allocate_retries=600
+  - cpu_mode=host-passthrough
+  - disk_cachemodes=file=writeback
+  - network=writeback
+  - block=none
+  - build_failure_weight_multiplier=0
+  - timeout=30
+  - rpc_response_timeout=600
+  - force_raw_images=False
+  - container_name:nova_compute
+  - container_name:nova_migration_target
+  - container_name:nova_libvirt
+  - container_name:nova_virtlogd
+
+# gathered nova settings
+nova_settings:
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: cpu_allocation_ratio }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: ram_allocation_ratio }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: disk_allocation_ratio }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: block_device_allocate_retries }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: block_device_allocate_retries_interval }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: cpu_mode }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: disk_cachemodes }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: build_failure_weight_multiplier }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: timeout }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: rpc_response_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf", setting: force_raw_images }
+
+#nova_settings_unwanted: heartbeat_timeout_threshold|vif_plugging_timeout|^#
+
+settings_store_path: /var/tmp/record_of_settings/parsed-compute-settings/
+
+# gathered nova containers
+nova_containers:
+  - nova_compute
+  - nova_migration_target
+  - nova_libvirt
+  - nova_virtlogd

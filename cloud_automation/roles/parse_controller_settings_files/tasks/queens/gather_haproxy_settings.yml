@@ -1,0 +1,44 @@
+---
+  - name: gathering haproxy.conf settings
+    shell: grep -Ev '^$|^#' {{ haproxy_settings.file }} | grep "{{ item }}"
+    loop: '{{ haproxy_settings.setting }}'
+    register: gather_result
+    ignore_errors: true
+
+  - name: Save gathered results to a temp var
+    set_fact:
+      temp_haproxy: "{{temp_haproxy + [item.stdout.split('\n') |map('trim')|list]}}"
+    loop: "{{gather_result.results}}"
+
+  - name: check haproxy containers are running
+    shell:  docker ps|grep -io "{{ item }}"
+    loop: "{{ haproxy_containers }}"
+    register: gather_container_result
+    ignore_errors: yes
+
+  - name: Set haproxy results
+    set_fact:
+      haproxy_results: "{{ (haproxy_results + [item.stdout]) +  temp_haproxy|flatten}}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Validating expected results
+    set_fact:
+      expected_results: "{{(haproxy_check + haproxy_check_queens) | difference(haproxy_results)}}"
+  
+  - name: Validating actual results
+    set_fact:
+      actual_results: "{{haproxy_results | difference(haproxy_check + haproxy_check_queens)}}"
+
+  - name: Combine controller haproxy results to a dictionary (queens)
+    set_fact:
+      haproxy_settings_results: "{{ haproxy_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+ 
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: haproxy
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

@@ -1,0 +1,6 @@
+---
+# tasks file for get_files
+  - block:
+      - include: prepare_directories.yml
+      - include: save_files.yml
+    become: no

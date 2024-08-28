@@ -1,0 +1,21 @@
+---
+# vars file for get_files
+store_path: /var/tmp/record_of_settings/controller/
+
+controller_files:
+#  - /var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf
+  - /var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf
+  - /var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf
+  - /var/lib/config-data/puppet-generated/keystone/etc/keystone/keystone.conf
+  - /var/lib/config-data/puppet-generated/heat/etc/heat/heat.conf
+  - /var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf
+  - /var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf
+  - /var/lib/config-data/puppet-generated/haproxy/etc/haproxy/haproxy.cfg
+  - /var/lib/config-data/puppet-generated/nova/etc/nova/policy.json
+  - /var/lib/config-data/puppet-generated/glance_api/etc/glance/policy.json
+  - /var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json
+  - /var/lib/config-data/puppet-generated/neutron/etc/neutron/plugins/ml2/ml2_conf.ini
+  - /var/lib/config-data/puppet-generated/mysql/etc/my.cnf.d/galera.cnf
+
+
+#  - galera mysql 

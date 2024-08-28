@@ -1,0 +1,71 @@
+---
+  - name: Gathering cinder.conf settings
+    shell: cat {{ item.file }} | grep -Ev '^$|^#' | grep {{ item.setting }}
+    loop: '{{ cinder_settings }}'
+    register: gather_result
+    ignore_errors: true
+
+  - include: common/storage_settings.yml
+    #combine results and remove all "cloud" substrings
+  
+  - name: check cinder containers are running
+    shell:  docker inspect `docker ps|grep -i "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ cinder_containers }}"
+    register: gather_container_result
+    ignore_errors: yes
+
+  - name: Save cinder docker container results
+    set_fact:
+      cinder_results: "{{cinder_results + [item.stdout| regex_replace(' ','')]}}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Combine cinder results
+    set_fact:
+      cinder_results: "{{cinder_results + temp}}"
+
+  - name: Remove special char (cinder_settings)
+    set_fact:
+      cinder_results: "{{cinder_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Split memcache server results
+    set_fact:
+      cinder_results: "{{(cinder_results + item.split(','))|reject('search', item) | list}}"
+    loop: "{{cinder_results}}"
+    when: "'cloud' in item"
+
+  - name: Set cinder results var
+    set_fact:
+      cinder_results: "{{ ( cinder_results + [ item|regex_replace('^.*-(.*)-','\\1') ] ) |reject('search', item) | list}}"
+    loop: "{{cinder_results}}"
+    when: "'cloud' in item"
+
+  - name: Remove trailing chars (cinder_settings)
+    set_fact:
+      cinder_results: "{{cinder_results | map('replace', ',' ,'') | list}}"
+
+  - name: Removing white spaces
+    set_fact:
+      results: "{{(cinder_check + cinder_check_queens)  | regex_replace(' ','')}}"
+
+  - name: Validating cinder settings expected
+    set_fact:
+      expected_results: "{{results| difference(cinder_results)}}"
+
+  - name: Validating cinder settings actual
+    set_fact:
+      actual_results: "{{cinder_results| difference(results)}}"
+
+  - name: Combine cinder results to a dictionary (queens)
+    set_fact:
+      cinder_settings_results: "{{ cinder_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: cinder
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

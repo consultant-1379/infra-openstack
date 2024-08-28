@@ -1,0 +1,55 @@
+---
+  - block:
+      - name: Get VNX settings
+        shell: cat {{ vnx_settings.file }} | grep -Ev '^$|^#' | grep {{ item }}
+        loop: '{{vnx_settings.setting}}'
+        register: vnx_results
+        ignore_errors: true
+
+      - name: Set setorage_check var for vnx
+        set_fact:
+          storage_check: "{{storage_check + [item.stdout.split(',')]}}"
+        loop: "{{vnx_results.results}}"
+
+      - name: Set storage_temp var for vnx
+        set_fact:
+          unity: false
+          storage_temp: "{{storage_temp + [item|regex_replace('^.*=','')]}}"
+        loop: "{{storage_check|flatten}}"
+
+      - name: Set temp var for vnx
+        set_fact:
+          temp: "{{temp + [item.stdout]}}"
+        loop: "{{vnx_results.results}}"
+        when: storage_temp | length != num_of_ports_and_pool_name
+    when: san_type.stdout == 'vnx'
+
+  - block:
+      - name: Get unity settings
+        shell: cat {{ unity_settings.file }} | grep -Ev '^$|^#' | grep {{ item }}
+        loop: '{{unity_settings.setting}}'
+        register: unity_results
+        ignore_errors: true
+
+      - name: Set storage_check var for unity
+        set_fact:
+          storage_check: "{{storage_check + [item.stdout.split(',')]}}"
+        loop: "{{unity_results.results}}"
+
+      - name: Set storage_temp var for unity
+        set_fact:
+          storage_temp: "{{storage_temp + [item|regex_replace('^.*=','')]}}"
+        loop: "{{storage_check|flatten}}"
+
+      - name: Set temp var for unity
+        set_fact:
+          temp: "{{temp + [item.stdout]}}"
+        loop: "{{unity_results.results}}"
+        when: storage_temp | length != num_of_ports_and_pool_name
+    when: san_type.stdout != 'vnx'
+
+  - name: Set temp storage_settings
+    set_fact:
+      temp: "{{(temp + item.stdout.split('\n'))|regex_replace(' ', '')}}"
+    loop: "{{gather_result.results}}"
+    when: item.stdout is defined 

@@ -1,0 +1,35 @@
+---
+  - name: Get redis settings
+    shell: pcs status |tr -d '*'|grep '^[[:blank:]]*redis-bundle' |awk '{print $1, $4}'| sed 's/ [^-]*-/ /'
+    register: redis_settings
+    ignore_errors: true
+
+  - name: Combine redis results
+    set_fact:
+      redis_list: "{{ redis_settings.stdout.split()|list}}"
+
+  - name: Validating redis settings
+    set_fact:
+      expected_results: "{{(redis_check + controller_check) | difference(redis_list)}}"
+
+  - name: Validating redis settings
+    set_fact:
+      actual_results: "{{(redis_list) | difference(redis_check + controller_check)}}"
+
+  - name: Combine redis results to a dictionary
+    set_fact:
+      redis_settings_results: "{{ redis_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: redis
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - set_fact:
+      actual_results: []
+      expected_results: []

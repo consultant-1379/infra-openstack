@@ -1,0 +1,206 @@
+---
+# Undercloud config
+rhsm_pool: 2fc6e7c1-469f-4e47-b438-4d8f41e8da71 
+# Proxy configuration
+use_proxy: False
+http_proxy: http://atproxy2.athtem.eei.ericsson.se:3128
+undercloud_fqdn: ieatrheldir16a.athtem.eei.ericsson.se
+# undercloud_public_ip should be on the ctlplane network
+undercloud_public_ip: 10.232.198.8
+# undercloud_admin_host_ip should be on the ctlplane network
+undercloud_admin_host_ip: 10.232.198.9
+# Director Control plane fully qualified name required for Registry
+director_ctlplane_fqdn: ieatrheldir16a.ctlplane.athtem.eei.ericsson.se
+
+domain: athtem.eei.ericsson.se
+
+director_ctlplane_ip: 10.232.198.5
+# i.e. 25 for a 10.10.10.0/25 network
+control_plane_cidr_prefix: 24 
+# i.e. include ip and subnet - 10.10.10.0/25
+provisioning_subnet: 10.232.198.0/24
+# director ctlplane IP address is outside of the DHCP range
+# number of DHCP IP addresses required is # of controllers + # of computes + 1 for DHCP agent on director
+# undercloud_admin_host_ip and undercloud_public_ip are on the ctlplane network but should not be in the DHCP range
+provisioning_dhcp_start: 10.232.198.11
+provisioning_dhcp_end: 10.232.198.128
+# introspection IP address range  must not overlap with the DHCP range
+provisioning_introspection_start: 10.232.198.129
+provisioning_introspection_end: 10.232.198.254
+provisioning_gateway: 10.232.198.1
+
+# Overcloud config
+os_release: train
+# Set instance_ha to True if  InstanceHA will be enabled on this deployment
+instance_ha: False
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname: cloud16a.athtem.eei.ericsson.se
+
+# Once the signed SSL certificate has been received, copy it and its private key into cloudX directory
+# SSL Certificate file name for the cloud
+# cloud_dir will be substituted when the start_deploy.sh script is run.
+# Enter the path like this: {{cloud_dir}}/cloudX.athtem.eei.ericsson.se.key
+ssl_cert: '{{cloud_dir}}/cloud16a.athtem.eei.ericsson.se.cer'
+# private key file name of the SSL Certificate
+ssl_cert_private_key: '{{cloud_dir}}/cloud16a.athtem.eei.ericsson.se.key'
+
+node_prefix: "cloud16a"
+
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password: "{{ipmi_password}}"
+pm_type: pxe_ipmitool
+
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  - 10.232.179.51
+  - 10.232.179.52
+  - 10.232.179.53
+
+
+# Set 'all_racks' to True if this deployment is a HPE all rack deployment
+all_racks: True
+
+# add the iLO IP address for each rack server
+ilos:
+  - 10.232.179.19
+  - 10.232.179.20
+  - 10.232.179.21
+  - 10.232.179.22
+  - 10.232.179.23
+  - 10.232.179.24
+  - 10.232.179.25
+  - 10.232.179.26
+  - 10.232.179.27
+  - 10.232.179.28
+  - 10.232.179.29
+  - 10.232.179.30
+  - 10.232.179.31
+  - 10.232.179.32
+  - 10.232.179.33
+  - 10.232.179.34
+  - 10.232.179.35
+  - 10.232.179.36
+  - 10.232.179.37
+  - 10.232.179.38
+  - 10.232.179.39
+  - 10.232.179.40
+  - 10.232.179.41
+  - 10.232.179.42
+  - 10.232.179.43
+  - 10.232.179.44
+  - 10.232.179.45
+  - 10.232.179.46
+  - 10.232.179.47
+  - 10.232.179.48
+  - 10.232.179.49
+  - 10.232.179.50
+  - 10.232.179.51
+  - 10.232.179.52
+  - 10.232.179.53
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: True
+is_dell_deployment: False
+# Network Configuration
+# Number of compute nodes
+compute_count: 32
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 0
+
+
+
+# External Network
+external_default_gateway: 10.232.214.1
+external_subnet: 10.232.214.0/24
+external_pool_start: 10.232.214.10
+external_pool_end: 10.232.214.12
+external_vlan_id: 627
+
+# Internal API network
+internal_api_subnet: 10.232.197.0/24
+internal_api_gateway: 10.232.197.1
+internal_api_pool_start: 10.232.197.14
+internal_api_pool_end: 10.232.197.200
+internal_api_vlan_id: 604
+
+# Storage Network
+storage_subnet: 10.232.202.0/25
+storage_pool_start: 10.232.202.12
+storage_pool_end: 10.232.202.120
+storage_vlan_id: 400
+
+# Storage NFS Network
+storage_nfs_subnet: 10.232.203.0/25
+storage_nfs_pool_start: 10.232.203.13
+storage_nfs_pool_end: 10.232.203.120
+storage_nfs_vlan_id: 402
+
+# Storage Management Network
+storage_mgmt_subnet: 10.232.202.128/25
+storage_mgmt_pool_start: 10.232.202.140
+storage_mgmt_pool_end: 10.232.202.240
+storage_mgmt_vlan_id: 401
+
+# Tenant Network
+tenant_subnet: 10.232.200.0/24
+tenant_pool_start: 10.232.200.12
+tenant_pool_end: 10.232.200.120
+tenant_vlan_id: 607
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 10.232.214.9
+
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  - 10.232.214.17
+  - 10.232.214.18
+  - 10.232.214.19
+
+custom_controller_nicconfig: ../nic-configs/train-controller_16a.yaml
+custom_compute_nicconfig: ../nic-configs/train-compute_16a.yaml
+
+san_storage_pool: PD01:PD01_FG01
+san_ip: 10.232.193.254
+san_user: admin
+san_password: "{{san_password}}"
+san_type: flexos
+san_backend_name: flexos
+mdm_ips:
+  - 10.232.189.254
+  - 10.232.190.254
+
+glance_backend: file
+
+# NFS Settings for non-ceph deployments
+
+# IP addresses for NFS shares
+glancenfs_ip_1: 10.232.151.246
+glancenfs_ip_2: 10.232.151.246
+gnochhinfs_ip_1: 10.232.151.246
+gnochhinfs_ip_2: 10.232.151.246
+cinderbackup_nfs_ip: 10.232.151.246
+nova_nfs_ip1: 10.232.151.246
+nova_nfs_ip2: 10.232.151.246
+
+
+# NFS Share path - add path to override the defaults, otherwise leave empty
+# e.g. /glance for  10.10.10.123:/glance
+# default share path is /glance
+glance_share: /Cloud16A_NFS_Glance
+# default share path is /glance_staging
+glance_staging_share: /Cloud16A_NFS_Staging
+# default share path is /gnocchi
+#gnocchi_share: /vx/ericsson-test/gnocchi
+# default share path is /cinder_backup
+cinder_backup_share: /Cloud16A_cinder_backup
+# default share path is /nova_ephemeral
+#nova_ephemeral_share: /vx/ericsson-test/nova_ephemeral
+
+
+

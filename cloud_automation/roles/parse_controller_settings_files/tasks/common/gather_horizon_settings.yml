@@ -1,0 +1,31 @@
+---
+  - name: gathering horizon settings
+    shell: grep -Ev '^$|^#' {{ item.file }} | grep {{ item.setting }}
+    loop: '{{ horizon_settings }}'
+    register: horizon_result
+    ignore_errors: yes
+
+  - name: Validating horizon settings
+    set_fact:
+      expected_results: "{{horizon_check | difference(horizon_result.results[0].stdout_lines)}}"
+  - name: Validating horizon settings
+    set_fact:
+      actual_results: "{{(horizon_result.results[0].stdout_lines) | difference(horizon_check)}}"
+
+  - name: Combine horizon results to a dictionary
+    set_fact:
+      horizon_settings_results: "{{ horizon_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: horizon
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - set_fact:
+      actual_results: []
+      expected_results: []

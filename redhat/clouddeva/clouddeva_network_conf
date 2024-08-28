@@ -1,0 +1,23 @@
+---
+  switches:
+    distribution:
+      host:
+        - name: [ieatp100sd001, ieatp0ds001]
+    storage:
+      host:
+        - name: [ieatp100st007]
+          untag_ports: []
+          tag_ports: [1,2,3,5,6,7,8,9,10,11,12,13,14,15,16,18]
+        - name: [ieatp100st008]
+          untag_ports: []
+          tag_ports: [1,2,3,4,5,6,7,8,9,10,11,12,13,15,16,18]
+    edge:
+      host:
+        - name: [ieatp0es035, ieatp0es036]
+          director_ports: [37]
+          untag_ports: []
+          tag_ports: ['43g']
+          lacp_ports: [43, 44]
+  vars: {st_sd_vlans: [{'p100-deva-storage': '414'}, {'p100-deva-storage-mgt': '415'}, {'p100-deva--storage-nfs': '416'}],
+          es_vlans: [{'p0-opstk-deva-vxlan': '723'}, {'p0-opstk-deva-internal-api': '720'}, {'p0-opstk-deva-provisioning': '721'},
+                      {'p0-opstk-deva-floating': '725'}, {'p0-opstk-deva-ggn-access': '726'}]}

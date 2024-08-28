@@ -1,0 +1,87 @@
+---
+  - name: gathering glance-api.conf settings
+    shell: grep -Ev '^$|^#' {{ item.file }} | grep {{ item.setting }}
+    loop: '{{ glance_settings }}'
+    register: gather_result
+    ignore_errors: true
+
+  - name: check glance containers are running
+    shell:  docker inspect `docker ps|grep -i "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ glance_containers }}"
+    register: gather_container_result
+    ignore_errors: true
+
+  - name: Save glance results, removing white spaces
+    set_fact:
+      glance_results: "{{glance_results + [item.stdout | regex_replace(' ','')]}}"
+    loop: "{{gather_container_result.results}}"
+  
+  - name: Save glance conf results
+    set_fact:
+      temp_glance: "{{(temp_glance + item.stdout.split('\n'))| regex_replace(' ','')}}"
+    loop: "{{gather_result.results}}"
+    
+  - name: Combine glance results
+    set_fact:
+      glance_results: "{{ glance_results + (temp_glance|flatten)}}"
+
+  - name: Remove special char (glance_settings)
+    set_fact:
+      glance_results: "{{glance_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Split memcache server results
+    set_fact:
+      glance_results: "{{(glance_results + item.split(','))|reject('search', item) | list}}"
+    loop: "{{glance_results}}"
+    when: "'cloud' in item"
+ 
+  - name: Set keyston results var
+    set_fact:
+      glance_results: "{{ (glance_results + [item|regex_replace('^.*-(.*)-','\\1')]) |reject('search', item) | list}}"
+    loop: "{{glance_results}}"
+    when: "'cloud' in item"
+
+  - name: Remove trailing chars (glance_settings)
+    set_fact:
+      glance_results: "{{glance_results | map('replace', ',' ,'') | list}}"
+
+  - name: verify NFS mount points are accessible
+    shell: mount | grep 'type nfs' | awk '{print $3" "$4" "$5}'
+    register: gather_nfs_result
+    ignore_errors: true
+
+  - name: Save nfs results
+    set_fact:
+      glance_results: "{{ (glance_results + gather_nfs_result.stdout.split('\n')) | select() | list}}"
+
+  - block:
+    - name: Validating unity glance settings
+      set_fact:
+        expected_results: "{{(glance_check + glance_nfs_unity_check + glance_checks_queens) | difference(glance_results)}}"
+    - name: Validating unity glance settings
+      set_fact:
+        actual_results: "{{glance_results | difference(glance_check + glance_nfs_unity_check + glance_checks_queens)}}"
+    when: san_type.stdout != "vnx"
+
+  - block:
+    - name: Validating vnx glance settings
+      set_fact:
+        expected_results: "{{(glance_check + glance_nfs_vnx_check + glance_checks_queens) | difference(glance_results)}}"
+    - name: Validating vnx glance settings
+      set_fact:
+        actual_results: "{{glance_results | difference(glance_check + glance_nfs_vnx_check + glance_checks_queens)}}"
+    when: san_type.stdout == "vnx"
+
+  - name: Combine controller glance results to a dictionary (queens)
+    set_fact:
+      glance_settings_results: "{{ glance_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: glance
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

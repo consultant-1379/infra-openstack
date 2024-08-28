@@ -1,0 +1,24 @@
+---
+- hosts: overcloud
+  gather_facts: false
+  become: yes
+  remote_user: heat-admin
+  vars:
+    automation_user: awx
+  tasks:
+    - name: 'Create {{ automation_user }} user on overcloud node'
+      user:
+        name: '{{ automation_user }}'
+        password: $6$omu6IQS6.C6jcJqV$7ktgP/5F6eaUr2hFIWK52R1NNIV/RnqEogGCt7jRuVSfqePqHV5rA6IchnLVSg7atcODxvfQzOtcuBkPoCXUA1
+        state: present
+
+    - name: "Add {{automation_user}} user's public key to authorized_keys file"
+      authorized_key:
+        user: '{{ automation_user }}'
+        state: present
+        key: '{{ lookup("file",keyfile) }}'
+
+    - name: 'Create sudoers file for {{ automation_user }}'
+      copy: 
+        content: '{{ automation_user }} ALL=(root) NOPASSWD:ALL'
+        dest: '/etc/sudoers.d/{{ automation_user }}'

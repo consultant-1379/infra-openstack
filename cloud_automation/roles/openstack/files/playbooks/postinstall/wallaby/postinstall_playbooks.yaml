@@ -1,0 +1,5 @@
+---
+  - include: controller.yaml
+  - include: compute.yaml
+  - include: overcloud.yaml
+  - include: director_post_tasks.yaml

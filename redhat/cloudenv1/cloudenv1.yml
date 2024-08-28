@@ -1,0 +1,153 @@
+---
+# Undercloud config
+
+# Proxy configuration
+use_proxy: True
+http_proxy: http://atproxy2.athtem.eei.ericsson.se:3128
+undercloud_fqdn: ieatrheldirenv1.athtem.eei.ericsson.se
+undercloud_public_ip: 10.232.16.7
+domain: athtem.eei.ericsson.se
+
+director_ctlplane_ip: 10.232.14.133
+# i.e. 25 for a 10.10.10.0/25 network
+control_plane_cidr_prefix: 26
+provisioning_subnet: 10.232.14.128/26
+# director ctlplane IP address is outside of the DHCP range
+# number of DHCP IP addresses required is # of controllers + # of computes + 1 for DHCP agent on director
+provisioning_dhcp_start: 10.232.14.135
+provisioning_dhcp_end: 10.232.14.155
+# introspection IP address range  must not overlap with the DHCP range
+provisioning_introspection_start: 10.232.14.156
+provisioning_introspection_end: 10.232.14.176
+provisioning_gateway: 10.232.14.129
+
+# Overcloud config
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname: cloudenv1.athtem.eei.ericsson.se
+# Once the signed SSL certificate has been received, copy it and its private key into cloudX directory
+# SSL Certificate file name for the cloud
+# cloud_dir will be substituted when the start_deploy.sh script is run.
+# Enter the path like this: {{cloud_dir}}/cloudX.athtem.eei.ericsson.se.key
+ssl_cert: {{cloud_dir}}/cloudenv1.athtem.eei.ericsson.se.key
+# private key file name of the SSL Certificate
+ssl_cert_private_key: {{cloud_dir}}/cloudenv1.athtem.eei.ericsson.se.cer
+
+node_prefix: "cloudenv1"
+
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password: "{{ipmi_password}}"
+pm_type: pxe_ipmitool
+
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  - 10.149.84.222
+  - 10.149.84.223
+  - 10.149.84.224
+# List of OA IP addresses for deployments where all servers are HPE blades or
+# where the controllers are Dell rack servers and the computes are HPE blades.
+oa_ips:
+  - 10.149.84.214
+
+# Set 'all_racks' to True if this deployment is a HPE all rack deployment
+all_racks: False
+
+
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: True
+is_dell_deployment: False
+# Network Configuration
+# Number of compute nodes
+compute_count: 13
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 10
+
+director_ctlplane_ip: 10.232.14.133
+# i.e. /25 for a 10.10.10.0/25 network
+control_plane_cidr_prefix: /26
+
+
+
+# External Network
+external_default_gateway: 10.232.16.1
+external_subnet: 10.232.16.0/26
+external_pool_start: 10.232.16.14
+external_pool_end: 10.232.16.62
+external_vlan_id: 499
+
+# Internal API network
+internal_api_subnet: 10.232.15.128/26
+internal_api_gateway: 10.232.15.129
+internal_api_pool_start: 10.232.15.134
+internal_api_pool_end: 10.232.15.190
+internal_api_vlan_id: 497
+
+# Storage Network
+storage_subnet: 10.232.15.0/26
+storage_pool_start: 10.232.15.6
+storage_pool_end: 10.232.15.62
+storage_vlan_id: 495
+
+# Storage NFS - not needed
+storage_nfs_subnet:
+storage_nfs_pool_start:
+storage_nfs_pool_end:
+storage_nfs_vlan_id:
+
+# Storage Management Network
+storage_mgmt_subnet: 10.232.15.64/26
+storage_mgmt_pool_start: 10.232.15.70
+storage_mgmt_pool_end: 10.232.15.126
+storage_mgmt_vlan_id: 496
+
+# Tenant Network
+tenant_subnet: 10.232.14.192/26
+tenant_pool_start: 10.232.14.198
+tenant_pool_end: 10.232.14.254
+tenant_vlan_id: 494
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 10.232.16.10
+
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  - 10.232.16.11
+  - 10.232.16.12
+  - 10.232.16.13
+# Name of the storage pool to create on the VNX/Unity
+san_storage_pool: RHEL_OpenStack_ENV2
+san_ip: 10.149.84.187
+san_user: admin
+san_password: "{{san_password}}"
+# SAN protocol: iSCSI or FC
+san_protocol: FC
+# SAN ports:
+# iSCSI example: spa_iom_0_eth1,spb_iom_0_eth1,spa_iom_0_eth0,spb_iom_0_eth0
+# FC example: A-0,B-0,A-2,B-2
+san_ports: A-1,B-1,A-3,B-3
+
+# IP addresses for NFS shares
+glancenfs_ip_1: 10.151.134.8
+glancenfs_ip_2: 10.151.134.8
+gnochhinfs_ip_1: 10.151.134.8
+gnochhinfs_ip_2: 10.151.134.8
+cinderbackup_nfs_ip: 10.151.134.8
+nova_nfs_ip1: 10.151.134.8
+nova_nfs_ip2: 10.151.134.8
+# san_type must be either 'vnx' or 'unity'
+san_type: vnx
+san_backend_name: vnx-164-env1
+
+# NFS Share path
+# e.g. /glance for  10.10.10.123:/glance
+glance_share: /vx/CloudENv1/Robustness/glance
+glance_staging_share: /vx/CloudENv1/Robustness/glance_staging
+gnocchi_share: /vx/CloudENv1/Robustness/gnocchi
+cinder_backup_share: /vx/CloudENv1/Robustness/cinder_backup
+nova_ephemeral_share: /vx/CloudENv1/Robustness/nova_ephemeral

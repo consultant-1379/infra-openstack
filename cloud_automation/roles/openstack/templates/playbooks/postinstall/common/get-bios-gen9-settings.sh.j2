@@ -1,0 +1,12 @@
+{%raw%}#!/bin/bash
+# This script requires ilorest package to be installed
+for ip in $(jq '.[][].pm_addr' {%endraw%}{{openstack_undercloud_directory}}{%raw%}/instackenv.json | sed 's/"//g')
+do
+        host $ip|awk '{print $NF}'
+        list="SerialNumber PowerProfile PowerRegulator IntelPerfMonitoring EnergyPerfBias IntelQpiPowerManagement CollabPowerControl BootMode"
+        for item in $list
+        do
+                ilorest get $item --url $ip -u cloud -p cl0udroot --select Bios | grep $item
+        done
+        echo
+done{%endraw%}

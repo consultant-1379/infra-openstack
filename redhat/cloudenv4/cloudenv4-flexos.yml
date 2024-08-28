@@ -1,0 +1,134 @@
+---
+# Undercloud config
+
+# Proxy configuration
+use_proxy: False
+http_proxy: http://atproxy2.athtem.eei.ericsson.se:3128
+undercloud_fqdn: ieatrheldirenv4.athtem.eei.ericsson.se
+undercloud_public_ip: 10.210.242.156
+domain: athtem.eei.ericsson.se
+
+director_ctlplane_ip: 10.232.32.5
+# i.e. 25 for a 10.10.10.0/25 network
+control_plane_cidr_prefix: 26
+provisioning_subnet: 10.232.32.0/26
+# director ctlplane IP address is outside of the DHCP range
+# number of DHCP IP addresses required is # of controllers + # of computes + 1 for DHCP agent on director
+provisioning_dhcp_start: 10.232.32.5
+provisioning_dhcp_end: 10.232.32.31
+# introspection IP address range  must not overlap with the DHCP range
+provisioning_introspection_start: 10.232.32.32
+provisioning_introspection_end: 10.232.32.62
+provisioning_gateway: 10.232.32.1
+
+# Overcloud config
+
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname: cloudenv4.athtem.eei.ericsson.se
+# Once the signed SSL certificate has been received, copy it and its private key into cloudX directory
+# SSL Certificate file name for the cloud
+# cloud_dir will be substituted when the start_deploy.sh script is run.
+# Enter the path like this: {{cloud_dir}}/cloudX.athtem.eei.ericsson.se.key
+ssl_cert: '{{cloud_dir}}/cloudenv4.athtem.eei.ericsson.se.cer'
+# private key file name of the SSL Certificate
+ssl_cert_private_key: '{{cloud_dir}}/cloudenv4.athtem.eei.ericsson.se.key'
+
+node_prefix: "cloudenv4"
+
+# IPMI credentials for individual servers
+pm_user: root
+pm_password: "{{ipmi_password}}"
+pm_type: pxe_ipmitool
+
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  - 10.149.85.24
+  - 10.149.85.25
+  - 10.149.85.26
+# List of OA IP addresses for deployments where all servers are HPE blades or
+# where the controllers are Dell rack servers and the computes are HPE blades.
+oa_ips:
+  - 10.149.85.16
+
+# Set 'all_racks' to True if this deployment is a HPE all rack deployment
+all_racks: False
+
+
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: True
+is_dell_deployment: False
+# Network Configuration
+# Number of compute nodes
+compute_count: 13
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 0
+
+
+
+# External Network
+external_default_gateway: 10.210.242.129
+external_subnet: 10.210.242.128/27
+external_pool_start: 10.210.242.152
+external_pool_end: 10.210.242.154
+external_vlan_id: 461
+
+# Internal API network
+internal_api_subnet: 10.232.24.192/26
+internal_api_gateway: 10.232.24.193
+internal_api_pool_start: 10.232.24.197
+internal_api_pool_end: 10.232.24.215
+internal_api_vlan_id: 531
+
+# Storage Network
+storage_subnet: 10.232.33.0/26
+storage_pool_start: 10.232.33.5
+storage_pool_end: 10.232.33.23
+storage_vlan_id: 403
+
+# Storage NFS Network
+storage_nfs_subnet: 10.232.33.64/26
+storage_nfs_pool_start: 10.232.33.69
+storage_nfs_pool_end: 10.232.33.87
+storage_nfs_vlan_id: 404
+
+# Storage Management Network
+storage_mgmt_subnet: 10.232.32.192/26
+storage_mgmt_pool_start: 10.232.32.197
+storage_mgmt_pool_end: 10.232.32.215
+storage_mgmt_vlan_id: 402
+
+# Tenant Network
+tenant_subnet: 10.232.32.64/26
+tenant_pool_start: 10.232.32.69
+tenant_pool_end: 10.232.32.87
+tenant_vlan_id: 533
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 10.210.242.158
+
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  - 10.210.242.152
+  - 10.210.242.153
+  - 10.210.242.154
+
+custom_controller_nicconfig: ../nic-configs/cloudenv4-flexos-controller.yaml
+custom_compute_nicconfig: ../nic-configs/cloudenv4-flexos-compute.yaml
+
+san_storage_pool: PD01_SP01
+san_ip: 10.232.77.166
+san_user: admin
+san_password: {{ san_password }}
+san_type: flexos
+san_backend_name: flexos_poc
+mdm_ips:
+  - 10.232.77.180
+  - 10.232.77.228
+  - 10.232.77.181
+  - 10.232.77.229 

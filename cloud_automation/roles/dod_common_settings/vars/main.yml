@@ -1,0 +1,43 @@
+---
+# percentage of compute and controler node disk usage
+max_limit: 80
+
+# store path for output file
+settings_store_path: /var/tmp/record_of_settings/parsed-general-settings/common-settings
+
+# *****dns configuration section*****
+
+# empty list to fill with dns configuration results
+dns_conf_results: []
+
+# checks to compare with gathered dns settings
+dns_conf_check:
+  - nameserver 159.107.173.12
+  - nameserver 159.107.173.3
+  - "Name:\tinternal.ericsson.com"
+  - "Address: 128.87.227.131"
+
+FQDN: internal.ericsson.com
+
+# *****ntp checks section*****
+
+# checks to compare with gathered ntp settings
+ntp_check:
+  - disable monitor
+  - restrict default kod nomodify notrap nopeer noquery
+  - restrict -6 default kod nomodify notrap nopeer noquery
+  - restrict 127.0.0.1
+  - restrict -6 ::1
+  - server 159.107.173.12 iburst
+  - server 159.107.173.223 iburst
+  - driftfile /var/lib/ntp/drift
+  - synchronised to NTP server
+  - 193.180.251
+  - 193.180.251
+
+# empty list to fill with ntp results
+ntp_results: []
+chrony_results: []
+chrony_check:
+  - 159.107.173.12
+  - 159.107.173.223

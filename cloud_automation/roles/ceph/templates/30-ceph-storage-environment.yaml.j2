@@ -1,0 +1,23 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+resource_registry:
+  OS::TripleO::Services::CephExternal: /usr/share/openstack-tripleo-heat-templates/docker/services/ceph-ansible/ceph-external.yaml
+
+parameter_defaults:
+  CephClusterFSID: '{{ ceph_cluster_fsid }}'
+  CephClientKey: '{{ ceph_client_key }}'
+  CephExternalMonHost: '{{ ceph_external_mon_host }}'
+
+  # the following parameters enable Ceph backends for Cinder, Glance and Nova
+  NovaEnableRbdBackend: true
+  CinderEnableRbdBackend: true
+  CinderBackupBackend: ceph
+  GlanceBackend: rbd
+
+  NovaRbdPoolName: '{{nova_rbd_pool_name}}'
+  CinderRbdPoolName: '{{cinder_rbd_pool_name}}'
+  CinderBackupRbdPoolName: '{{cinder_backup_rbd_pool_name}}'
+  GlanceRbdPoolName: '{{glance_rbd_pool_name}}'
+  CephClientUserName: '{{ceph_client_user_name}}'
+
+  # finally we disable the Cinder LVM backend
+  CinderEnableIscsiBackend: false

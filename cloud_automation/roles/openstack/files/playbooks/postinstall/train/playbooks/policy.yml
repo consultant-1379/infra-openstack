@@ -1,0 +1,172 @@
+---
+  - name: Determine OpenStack release
+    set_fact:
+      os_release: '{{ lookup("file","/etc/rhosp-release") | regex_replace(".*\((Train|Queens)\).*","\1") |lower }}'
+    delegate_to: localhost # is this needed as lookup only works on localhost
+    run_once: yes
+
+  - name: generate openstack policy (RHOSP 13/Queens)
+    command: "/bin/oslopolicy-policy-generator --namespace {{ item }} --output-file /tmp/{{ item }}-policy.json"
+    with_items: "{{ osp_services_policy }}"
+    when: os_release is defined and os_release != "train"
+
+  - name: generate openstack policy (RHOSP 16.1/Train)
+    shell: "podman exec -it {{item}}_api /bin/oslopolicy-policy-generator --namespace {{ item }} > /tmp/{{ item }}-policy.json"
+    with_items: "{{ osp_services_policy }}"
+    when: os_release is defined and os_release == "train"
+
+  - name: replace line snapshot_admin_action
+    replace: 
+      dest: /tmp/cinder-policy.json
+      regexp: '"volume_extension:snapshot_admin_actions:reset_status.*' 
+      replace: '"volume_extension:snapshot_admin_actions:reset_status": "role:reset_role"'
+
+  - name: replace line reset_status
+    replace:
+      dest: /tmp/cinder-policy.json
+      regexp: '"group:reset_status.*'
+      replace: '"group:reset_status": "role:reset_role"'
+  
+  - name: replace line backup_admin_actions
+    replace:
+      dest: /tmp/cinder-policy.json
+      regexp: '"volume_extension:backup_admin_actions:reset_status.*'
+      replace: '"volume_extension:backup_admin_actions:reset_status": "role:reset_role"'
+
+  - name: replace line volume_admin_actions
+    replace:
+      dest: /tmp/cinder-policy.json
+      regexp: '"volume_extension:volume_admin_actions:reset_status.*'
+      replace: '"volume_extension:volume_admin_actions:reset_status": "role:reset_role"'
+#cinder section for heat_stack_owner
+  - name: replace line volume_admin_actions
+    replace:
+      dest: /tmp/cinder-policy.json
+      regexp: '"volume_extension:volume_admin_actions:force_delete.*'
+      replace: '"volume_extension:volume_admin_actions:force_delete": "rule:admin_api or role:heat_stack_owner"'
+
+  - name: replace line snapshot_admin_actions
+    replace:
+      dest: /tmp/cinder-policy.json
+      regexp: '"volume_extension:snapshot_admin_actions:force_delete.*'
+      replace: '"volume_extension:snapshot_admin_actions:force_delete": "rule:admin_api or role:heat_stack_owner"'
+
+  - name: replace line backup_admin_actions
+    replace:
+      dest: /tmp/cinder-policy.json
+      regexp: '"volume_extension:backup_admin_actions:force_delete.*'
+      replace: '"volume_extension:backup_admin_actions:force_delete": "rule:admin_api or role:heat_stack_owner"'
+
+  - name: replace line backup export-import
+    replace:
+      dest: /tmp/cinder-policy.json
+      regexp: '"backup:export-import.*'
+      replace: '"backup:export-import": "rule:admin_api or role:heat_stack_owner"'
+
+  - name: replace line backup-import
+    replace:
+      dest: /tmp/cinder-policy.json
+      regexp: '"backup:backup-import.*'
+      replace: '"backup:backup-import": "rule:admin_api or role:heat_stack_owner"'
+#neutron section for heat_stack_owner
+  - name: replace line fixed_ips
+    replace:
+      dest: /tmp/neutron-policy.json      
+      regexp: '"create_port:fixed_ips".*'
+      replace: '"create_port:fixed_ips": "rule:context_is_advsvc or rule:admin_or_network_owner or rule:shared or role:heat_stack_owner"'
+
+  - name: replace line allowed_address_pairs ip_address
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"create_port:allowed_address_pairs:ip_address".*'
+      replace: '"create_port:allowed_address_pairs:ip_address": "rule:admin_or_network_owner or role:heat_stack_owner"'
+
+  - name: replace line fixed_ips ip_address
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"update_port:fixed_ips:ip_address".*'
+      replace: '"update_port:fixed_ips:ip_address": "rule:context_is_advsvc or rule:admin_or_network_owner or role:heat_stack_owner"'
+
+  - name: replace line fixed_ips subnet_id
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"create_port:fixed_ips:subnet_id".*'
+      replace: '"create_port:fixed_ips:subnet_id": "rule:context_is_advsvc or rule:admin_or_network_owner or rule:shared or role:heat_stack_owner"'
+
+  - name: replace line update_port fixed_ips
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"update_port:fixed_ips".*'
+      replace: '"update_port:fixed_ips": "rule:context_is_advsvc or rule:admin_or_network_owner or rule:shared or role:heat_stack_owner"'
+
+  - name: replace line create_port fixed_ips ip_address
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"create_port:fixed_ips:ip_address".*'
+      replace: '"create_port:fixed_ips:ip_address": "rule:context_is_advsvc or rule:admin_or_network_owner or role:heat_stack_owner"'
+
+  - name: replace line update_port allowed_address_pairs ip_address
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"update_port:allowed_address_pairs:ip_address".*'
+      replace: '"update_port:allowed_address_pairs:ip_address": "rule:admin_or_network_owner or role:heat_stack_owner"'
+
+  - name: replace line update_port allowed_address_pairs
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"update_port:allowed_address_pairs".*'
+      replace: '"update_port:allowed_address_pairs": "rule:admin_or_network_owner or role:heat_stack_owner"'
+
+  - name: replace line create_port allowed_address_pairs mac_addresse
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"create_port:allowed_address_pairs:mac_address".*'
+      replace: '"create_port:allowed_address_pairs:mac_address": "rule:admin_or_network_owner or role:heat_stack_owner"'
+
+  - name: replace line update_port fixed_ips subnet_id
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"update_port:fixed_ips:subnet_id".*'
+      replace: '"update_port:fixed_ips:subnet_id": "rule:context_is_advsvc or rule:admin_or_network_owner or rule:shared or role:heat_stack_owner"'
+
+  - name: replace line create_port allowed_address_pairs
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"create_port:allowed_address_pairs".*'
+      replace: '"create_port:allowed_address_pairs": "rule:admin_or_network_owner or role:heat_stack_owner"'
+
+  - name: replace line update_port allowed_address_pairs mac_address
+    replace:
+      dest: /tmp/neutron-policy.json
+      regexp: '"update_port:allowed_address_pairs:mac_address".*'
+      replace: '"update_port:allowed_address_pairs:mac_address": "rule:admin_or_network_owner or role:heat_stack_owner"'
+#section for glance heat_stack_owner
+  - name: replace line glance publicize_image
+    replace:
+      dest: /tmp/glance-policy.json
+      regexp: '"publicize_image".*'
+      replace: '"publicize_image": "role:admin or role:heat_stack_owner"'
+#section for nova heat_stack_owner
+  - name: replace line nova os-extended-server-attributes
+    replace:
+      dest: /tmp/nova-policy.json
+      regexp: '"os_compute_api:os-extended-server-attributes".*'
+      replace: '"os_compute_api:os-extended-server-attributes": "rule:admin_api or role:heat_stack_owner"'
+#section for heat stack visiblity
+  - name: replace line heat context_is_admin
+    replace:
+      dest: /tmp/heat-policy.json
+      regexp: '"context_is_admin".*'
+      replace: '"context_is_admin": "role:admin and is_admin_project:True"'
+#section copy policy file
+  - name: copy openstack policy
+    copy:
+      src: "/tmp/{{ item }}-policy.json"
+      dest: "/var/lib/config-data/puppet-generated/{{ item + '_api' if item=='glance' else item}}/etc/{{ item }}/policy.json"
+      #dest: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/test/policy.json"
+      owner: root
+      group: root
+      mode: '0644'
+      remote_src: yes
+      backup: yes
+    with_items: "{{ osp_services_policy }}"

@@ -1,0 +1,13 @@
+---
+- name: Change  Max Dropdown items in Horizon
+  ini_file:
+    path: /var/lib/config-data/puppet-generated/horizon/etc/openstack-dashboard/local_settings
+    section: ''
+    option: DROPDOWN_MAX_ITEMS
+    value: 200
+
+- name: Check DROPDOWN_MAX_ITEMS  afterwards
+  shell: crudini --get /var/lib/config-data/puppet-generated/horizon/etc/openstack-dashboard/local_settings '' DROPDOWN_MAX_ITEMS
+  register: dropdown
+
+- debug: msg="Horizon max number of projects visible in dropdown= {{ dropdown.stdout }}"

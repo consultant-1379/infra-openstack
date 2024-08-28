@@ -1,0 +1,274 @@
+- name: Wait for director to start
+  wait_for:
+    port: 22
+    host: '{{ansible_host}}'
+    search_regex: OpenSSH
+    delay: 5
+    timeout: 180
+  connection: local
+
+- name: Set hostname
+  command: '{{cmd}}'
+  loop:
+    - "hostnamectl set-hostname {{undercloud_fqdn}}"
+    - "hostnamectl set-hostname --transient {{undercloud_fqdn}}"
+  loop_control:
+    loop_var: cmd
+    label: '{{cmd}}'
+  become: yes
+
+#- name: Updated /etc/hosts with director FQDN and short hostname
+#  replace:
+#    regexp: '^127.0.0.1'
+#    replace: "127.0.0.1   {{undercloud_fqdn}} {{undercloud_fqdn.split('.')|first}} localhost localhost.localdomain localhost4"
+#    path: /etc/hosts
+#  become: yes
+
+- name: Update /etc/hosts with Ctlplane IP
+  lineinfile:
+    line: "{{director_ctlplane_ip}} {{undercloud_fqdn}} {{undercloud_fqdn.split('.')|first}}"
+    insertafter: EOF
+    path: /etc/hosts
+    state: present
+  become: yes
+
+
+- name: Check if libvirtd exists on the director
+  shell: systemctl --all --type service | grep libvirtd
+  register: libvirtd_running
+  ignore_errors: true
+
+- name: Disable libvirtd on the director
+  systemd:
+    name: libvirtd
+    state: stopped
+    enabled: no
+  become: yes
+  when: libvirtd_running.rc == 0
+
+- name: Copy repo file to director
+  copy:
+    src: rhosp13_Z13_20201124.repo
+    dest: /etc/yum.repos.d/
+  become: yes
+  when: os_release == "queens"
+
+- name: Subscribe director and enable repos 16.1
+  block:
+    - name: Register director with RHSM
+      redhat_subscription:
+        state: present
+        username: '{{ rhsm_user }}'
+        password: '{{ rhsm_password }}'
+        consumer_id : '{{ rhsm_pool }}'
+        release: '{{ rhel_release }}'
+
+    - name: Enable required repositories
+      rhsm_repository:
+        state: present
+        purge: true
+        name: 
+          - rhel-8-for-x86_64-baseos-eus-rpms
+          - rhel-8-for-x86_64-appstream-eus-rpms
+          - rhel-8-for-x86_64-highavailability-eus-rpms
+          - ansible-2.9-for-rhel-8-x86_64-rpms
+          - openstack-16.1-for-rhel-8-x86_64-rpms
+          - fast-datapath-for-rhel-8-x86_64-rpms
+          - advanced-virt-for-rhel-8-x86_64-rpms
+
+    - name: Set container-tools repository module to version 2.0
+      shell: dnf module disable -y container-tools:rhel8;dnf module enable -y container-tools:2.0
+
+    - name: Set the virt repository module to version 8.2
+      shell: dnf module disable -y virt:rhel;dnf module enable -y virt:8.2
+
+  become: yes
+  when: ansible_distribution_major_version == "8" and "16.1" in rhosp_release
+
+- name: Subscribe director and enable repos 16.2
+  block:
+    - name: Register director with RHSM
+      redhat_subscription:
+        state: present
+        username: '{{ rhsm_user }}'
+        password: '{{ rhsm_password }}'
+        consumer_id : '{{ rhsm_pool }}'
+        release: '{{ rhel_release }}'
+ 
+    - name: Enable required repositories
+      rhsm_repository:
+        state: present
+        purge: true
+        name:
+          - rhel-8-for-x86_64-baseos-tus-rpms
+          - rhel-8-for-x86_64-appstream-tus-rpms
+          - rhel-8-for-x86_64-highavailability-tus-rpms
+          - ansible-2.9-for-rhel-8-x86_64-rpms
+          - openstack-16.2-for-rhel-8-x86_64-rpms
+          - fast-datapath-for-rhel-8-x86_64-rpms
+ 
+    - name: Set container-tools repository module to version 3.0
+      shell: dnf module disable -y container-tools:rhel8;dnf module enable -y container-tools:3.0
+ 
+  become: yes
+  when: ansible_distribution_major_version == "8" and "16.2" in rhosp_release
+
+- name: Subscribe director and enable repos 17.1
+  block:
+    - name: Register director with RHSM
+      redhat_subscription:
+        state: present
+        username: '{{ rhsm_user }}'
+        password: '{{ rhsm_password }}'
+#        consumer_id : '{{ rhsm_pool }}'
+        release: '{{ rhel_release }}'
+ 
+    - name: Enable required repositories
+      rhsm_repository:
+        state: present
+        purge: true
+        name:
+          - rhel-9-for-x86_64-baseos-eus-rpms
+          - rhel-9-for-x86_64-appstream-eus-rpms
+          - rhel-9-for-x86_64-highavailability-eus-rpms
+          - openstack-17.1-for-rhel-9-x86_64-rpms
+          - fast-datapath-for-rhel-9-x86_64-rpms
+ 
+    # Not requird for wallaby - leave for code review
+    #- name: Set container-tools repository module to version 3.0
+      #shell: dnf module disable -y container-tools:rhel8;dnf module enable -y container-tools:3.0
+ 
+  become: yes
+  #when: ansible_distribution_major_version == "8" and "17.1" in rhosp_release
+  when: os_release == "wallaby"
+
+- name: Update yum
+  yum:
+    name: '*'
+    state: latest
+  become: yes
+  register: director_updated
+
+- name: Reboot director VM
+  reboot:
+    post_reboot_delay: 30
+    reboot_timeout: 300
+  become: yes
+  when: director_updated.changed
+
+- name: Install python-tripleoclient client
+  package:
+    name: '{{package}}'
+  become: yes
+  vars:
+    tripleoclient_package: '{{ "python3-tripleoclient" if os_release == "train" or os_release == "wallaby" else "python-tripleoclient" }}'
+  loop:
+   - tmux
+   - '{{ tripleoclient_package }}'
+   - chrony
+   - vim
+  loop_control:
+    loop_var: package
+    label: '{{package}}'
+
+- name: Create chrony.conf
+  template:
+    src: chrony.conf.j2
+    dest: /etc/chrony.conf
+  become: yes
+  register: chrony_config
+
+- name: Restart chrony if /etc/chrony.conf has been updated
+  systemd:
+    name: chronyd
+    state: restarted
+    enabled: yes
+  become: yes
+  when: chrony_config.changed
+
+- name: Create undercloud.conf
+  template:
+    src: undercloud.conf.j2
+    dest: /home/stack/undercloud.conf
+  become: yes
+
+- name: Create container image file
+  template:
+    src: containers-prepare-parameter.yaml.j2
+    dest: containers-prepare-parameter.yaml
+  when: os_release == "train" or os_release == "wallaby"
+
+- name: Copy undercloud install script
+  copy:
+    src: install_undercloud.bsh
+    dest: /home/stack
+    mode: 0755
+    owner: stack
+    group: stack
+
+
+- name: Install the undercloud
+  shell: tmux new-session -d -s undercloud_install ./install_undercloud.bsh
+  
+- name: Get undercloud installation process ID
+  shell:  "pgrep -fl 'install_undercloud.bsh' | awk '!/tmux/{ print $1}'"
+  register: undercloud_process
+
+- name: Save process ID for undercloud installation
+  set_fact:
+   undercloud_install_pid: "{{undercloud_process.stdout_lines|reject('contains','tmux')|list|first}}"
+
+- name: Wait for undercloud installation to complete
+  wait_for:
+    delay: 20
+    path: "/proc/{{undercloud_install_pid}}/status"
+    state: absent
+    timeout: 3000
+
+- name: Apply tunings (Train)
+  block:
+    - name: Tune Keystone for overcloud installation.
+      replace:
+        path: /var/lib/config-data/puppet-generated/keystone/etc/httpd/conf.d/10-keystone_wsgi.conf 
+        regexp: '.*WSGIDaemonProcess.*'
+        replace: WSGIDaemonProcess keystone display-name=keystone group=keystone processes=16 threads=1 user=keystone
+      become: yes
+      notify: restart_httpd
+    - name: Update osapi_compute_workers in nova.conf
+      replace:
+        path: /var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf
+        regexp: '.*osapi_compute_workers.*'
+        replace: 'osapi_compute_workers = 16'
+      become: yes
+      notify: restart_nova
+  when: os_release == "train"
+
+- name: Apply tunings (Queens)
+  block:
+    - name: Tune Keystone for overcloud installation.
+      replace:
+        path: /etc/httpd/conf.d/10-keystone_wsgi_admin.conf
+        regexp: '.*WSGIDaemonProcess.*'
+        replace: WSGIDaemonProcess keystone_admin display-name=keystone-admin group=keystone processes=8 threads=1 user=keystone
+      become: yes
+      notify: restart_httpd
+    - name: Update osapi_compute_workers in nova.conf
+      replace:
+        path: /etc/nova/nova.conf
+        regexp: '.*osapi_compute_workers.*'
+        replace: 'osapi_compute_workers = 16'
+      become: yes
+  when: os_release == "queens"
+
+- name: Apply tunings (Wallaby)
+  block:
+    - name: Tune Keystone for overcloud installation.
+      replace:
+        path: /var/lib/config-data/puppet-generated/keystone/etc/httpd/conf.d/10-keystone_wsgi.conf 
+        regexp: '.*WSGIDaemonProcess.*'
+        replace: WSGIDaemonProcess keystone display-name=keystone group=keystone processes=16 threads=1 user=keystone
+      become: yes
+      notify: restart_httpd
+  when: os_release == "wallaby"
+
+

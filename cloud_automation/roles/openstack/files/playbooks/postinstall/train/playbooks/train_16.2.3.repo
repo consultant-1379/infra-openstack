@@ -1,0 +1,41 @@
+[advanced-virt-for-rhel-8-x86_64-rpms-16.2.3]
+name=advanced virt for rhel 8
+enabled=1
+baseurl=http://10.44.77.158/openstack/repo/16.2.3/advanced-virt-for-rhel-8-x86_64-rpms
+gpgcheck=0
+
+[ansible-2.9-for-rhel-8-x86_64-rpms-16.2.3]
+name=ansible 2.9 for rhel 8
+enabled=1
+baseurl=http://10.44.77.158/openstack/repo/16.2.3/ansible-2.9-for-rhel-8-x86_64-rpms
+gpgcheck=0
+
+[fast-datapath-for-rhel-8-x86_64-rpms-16.2.3]
+name=fast datapath for rhel 8
+enabled=1
+baseurl=http://10.44.77.158/openstack/repo/16.2.3/fast-datapath-for-rhel-8-x86_64-rpms
+gpgcheck=0
+
+[openstack-16.2-for-rhel-8-x86_64-rpms-16.2.3]
+name=openstack 16.2 for rhel 8
+enabled=1
+baseurl=http://10.44.77.158/openstack/repo/16.2.3/openstack-16.2-for-rhel-8-x86_64-rpms
+gpgcheck=0
+
+[rhel-8-for-x86_64-appstream-eus-rpms-16.2.3]
+name=rhel 8 for x86_64 appstream
+enabled=1
+baseurl=http://10.44.77.158/openstack/repo/16.2.3/rhel-8-for-x86_64-appstream-eus-rpms
+gpgcheck=0
+
+[rhel-8-for-x86_64-baseos-eus-rpms-16.2.3]
+name=rhel 8 for x86_64 baseos
+enabled=1
+baseurl=http://10.44.77.158/openstack/repo/16.2.3/rhel-8-for-x86_64-baseos-eus-rpms
+gpgcheck=0
+
+[rhel-8-for-x86_64-highavailability-eus-rpms-16.2.3]
+name=rhel 8 for x86_64 highavailability
+enabled=1
+baseurl=http://10.44.77.158/openstack/repo/16.2.3/rhel-8-for-x86_64-highavailability-eus-rpms
+gpgcheck=0

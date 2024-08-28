@@ -1,0 +1,25 @@
+---
+- include: train/gather_nova_settings.yml
+  tags: gather_nova_settings_train
+- include: train/gather_cinder_settings.yml
+  tags: gather_cinder_settings_train
+- include: train/gather_keystone_settings.yml
+  tags: gather_keystone_settings_train
+- include: train/gather_heat_settings.yml
+  tags: gather_heat_settings_train
+- include: train/gather_glance_settings.yml
+  tags: gather_glance_settings_train
+- include: train/gather_neutron_settings.yml
+  tags: gather_neutron_settings_train
+- include: train/gather_swift_settings.yml
+  tags: gather_swift_settings_train
+- include: train/gather_haproxy_settings.yml
+  tags: gather_haproxy_settings_train
+- include: train/gather_mysql_settings.yml
+  tags: gather_mysql_settings_train
+- include: common/gather_horizon_settings.yml
+  tags: gather_horizon_settings_train
+- include: common/gather_cinder_backup_volume.yml
+  tags: gather_cinder_backup_volume_train
+- include: common/gather_pcs_settings.yml
+  tags: gather_pcs_settings_train

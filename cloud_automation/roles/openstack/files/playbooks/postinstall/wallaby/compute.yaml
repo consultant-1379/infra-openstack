@@ -1,0 +1,97 @@
+---
+- hosts: Compute
+  gather_facts: false
+  become: yes
+  serial: 1
+  vars:
+    nova_conf_path: "/var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf"
+    nova_containers:
+      - nova_compute
+      - nova_migration_target
+      - nova_libvirt
+      - nova_virtlogd
+
+  tasks:
+  - name: Get auth url nova
+    delegate_to: localhost
+    shell: "source /home/stack/overcloudrc >/dev/null ; openstack catalog show keystone |awk '/internal: / {print $4}'"
+    register: authurlnova
+    run_once: true
+
+  - name: Get password nova
+    delegate_to: "{{ groups['Controller'][0] }}"
+    command: crudini --get /var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf keystone_authtoken password
+    register: passnova
+    run_once: true
+
+  - name: Enable send service user token
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: send_service_user_token
+      value: True
+      backup: yes
+
+  - name: Set service user auth type
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: auth_type
+      value: password
+
+  - name: "Ensure auth_url set {authurlnova.stdout}}"
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: auth_url
+      value: "{{authurlnova.stdout}}"
+
+  - name: Set service user
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: username
+      value: "nova"
+
+  - name: "Ensure Nova password set for service_user"
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: password
+      value: "{{passnova.stdout}}"
+
+  - name: Set service user domain name
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: user_domain_name
+      value: "Default"
+
+  - name: Set service user project name
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: project_name
+      value: "service"
+
+  - name: Set service project domain name
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: project_domain_name
+      value: "Default"
+
+  - name: Set service user auth strategy
+    ini_file:
+      path: "{{ nova_conf_path }}"
+      section: service_user
+      option: auth_strategy
+      value: keystone
+
+  - name: restart nova
+    shell: "podman restart {{nova_containers| join(' ')}}"
+    tags: restart_nova
+  
+  - name: Pause for 45 seconds while waiting on nova to restart
+    pause:
+      seconds: 45

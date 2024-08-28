@@ -1,0 +1,45 @@
+---
+  - name: gathering mysql galera settings
+    shell: grep -Ev '^$|^#' {{ mysql_settings.file }} | grep {{ item }}
+    loop: '{{ mysql_settings.setting }}'
+    register: gather_result
+    ignore_errors: yes
+
+  - name: Validate buffer size
+    include: common/buffer_validation.yml
+
+  - name: check galera containers are running
+    shell:  podman ps|grep "{{ item }}" | awk '{print $12}'|sed 's/.\{2\}$//'
+    loop: "{{ galera_train_containers }}"
+    register: gather_container_result
+
+  - name: Combine results
+    set_fact:
+      mysql_results: "{{mysql_results + [gather_container_result.results[0].stdout]}}"
+
+  - name: Add buffer pool size results
+    set_fact:
+      mysql_results: "{{mysql_results + ['innodb_buffer_pool_size = less than 20%']}}"
+    when: innodb_buffer is defined and innodb_buffer | length > 0
+
+  - name: Validating mysql galera settings (expected)
+    set_fact:
+      expected_results: "{{(mysql_check + mysql_check_train )| difference(mysql_results)}}"
+
+  - name: Validating mysql galera settings (actual)
+    set_fact:
+      actual_results: "{{mysql_results | difference(mysql_check + mysql_check_train)}}"
+
+  - name: Combine controller mysql results to a dictionary (train)
+    set_fact:
+      mysql_settings_results: "{{ mysql_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: mysql
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

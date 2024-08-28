@@ -1,0 +1,36 @@
+---
+  - name: Set idle_timeout on  OSP Services
+    ini_file:
+      path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+      section: database
+      option: idle_timeout
+      value: 3600
+      backup: yes
+    with_items: "{{ osp_services }}"
+
+  - name: Set idle_timout on glance
+    ini_file:
+      path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/glance/glance-api.conf"
+      section: database
+      option: idle_timeout
+      value: 3600
+      backup: yes
+    with_items: "{{ glance_services }}"
+
+  - name: Set idle_timeout on nova
+    ini_file:
+      path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/heat/heat.conf"
+      section: database
+      option: idle_timeout
+      value: 3600
+      backup: yes
+    with_items: "{{ heat_services }}"
+
+  - name: Set idle_timeout on nova
+    ini_file:
+      path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/nova/nova.conf"
+      section: database
+      option: idle_timeout
+      value: 3600
+      backup: yes
+    with_items: "{{ nova_services }}"

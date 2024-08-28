@@ -1,0 +1,145 @@
+---
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname:
+# Once the signed SSL certificate has been received, copy it and its private key into roles/common/files
+# SSL Certificate file name for the cloud
+ssl_cert:
+# private key file name of the SSL Certificate
+ssl_cert_private_key:
+
+# IPMI credentials for individual servers
+pm_user:
+pm_password: "{{ipmi_password}}"
+pm_type: ipmi
+
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  -
+  -
+  -
+
+# Where the c7000 chassis is split between 2 clouds.
+# set 'chassis_half' to 'top' to use the first 8 blades.
+# set 'chassis_half' to 'bottom' to use the second 8 blades.
+# If this variable is not set then the playbook defaults to using all the blades in the chassis.
+# chassis_half: 
+
+# List of OA IP addresses for deployments where all servers are HPE blades or
+# where the controllers are Dell rack servers and the computes are HPE blades.
+
+oa_ips: []
+  # - 10.149.24.142
+  # - 10.10.101.37
+  # - 10.10.101.69
+  # - 10.10.101.101
+
+# For deployments where all servers are Dell rack servers
+ome:
+  ip:
+  user:
+  password: "{{ome_password}}"
+  # Group name in OME e.g. Cloud-12
+  group:
+  # ilo hostname of the director host
+  director_host:
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: False
+is_dell_deployment: False
+# Network Configuration
+# Number of compute nodes
+compute_count: 16
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 0
+
+director_ctlplane_ip:
+
+# Proxy configuration
+use_proxy: False
+http_proxy:
+
+# External Network
+external_default_gateway:
+external_subnet:
+external_pool_start:
+external_pool_end:
+external_vlan_id:
+external_ipv6_gateway:
+external_ipv6_subnet:
+external_ipv6_start:
+external_ipv6_end:
+
+# Internal API network
+internal_api_subnet:
+internal_api_pool_start:
+internal_api_pool_end:
+internal_api_vlan_id:
+internal_api_ipv6_subnet:
+internal_api_ipv6_start:
+internal_api_ipv6_end:
+
+# Storage Network
+storage_subnet:
+storage_pool_start:
+storage_pool_end:
+storage_vlan_id:
+
+# Storage NFS
+storage_nfs_subnet:
+storage_nfs_pool_start:
+storage_nfs_pool_end:
+storage_nfs_vlan_id:
+
+# Storage Management Network
+storage_mgmt_subnet:
+storage_mgmt_pool_start:
+storage_mgmt_pool_end:
+storage_mgmt_vlan_id:
+
+# Tenant Network
+tenant_subnet:
+tenant_pool_start:
+tenant_pool_end:
+tenant_vlan_id:
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip:
+
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  -
+  -
+  -
+# Fixed IPv6 addresses
+controller_external_ipv6_ips:
+  -
+  -
+  -
+# Name of the storage pool to create on the VNX/Unity
+san_storage_pool:
+san_ip:
+san_user: unitycinder
+san_password: "{{unity_password}}"
+# SAN protocol: iSCSI or FC
+san_protocol: iSCSI
+# SAN ports:
+# iSCSI example: spa_iom_0_eth1,spb_iom_0_eth1,spa_iom_0_eth0,spb_iom_0_eth0
+# FC example: A-0,B-0,A-2,B-2
+san_ports: spa_iom_0_eth1,spb_iom_0_eth1,spa_iom_0_eth0,spb_iom_0_eth0
+
+# IP addresses for NFS shares
+glancenfs_ip_1:
+glancenfs_ip_2:
+gnochhinfs_ip_1:
+gnochhinfs_ip_2:
+cinderbackup_nfs_ip:
+nova_nfs_ip1:
+nova_nfs_ip2:
+# san_type must be either 'vnx' or 'unity'
+san_type:
+san_backend_name:

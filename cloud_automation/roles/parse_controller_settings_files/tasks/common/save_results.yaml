@@ -1,0 +1,15 @@
+---
+- name:  add section heading
+  shell: |
+      echo "
+      ****{{heading}} section******" >> {{ settings_store_path }}{{ inventory_hostname }}-parsed-settings
+
+- shell: echo "[EXPECTED_RESULTS:]" >> {{ settings_store_path }}{{ inventory_hostname }}-parsed-settings
+- name: save errors to file
+  shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-parsed-settings
+  loop: "{{expected}}"
+
+- shell: echo "[ACTUAL_RESULTS:]" >> {{ settings_store_path }}{{ inventory_hostname }}-parsed-settings
+- name: save errors to file
+  shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-parsed-settings
+  loop: "{{actual}}"

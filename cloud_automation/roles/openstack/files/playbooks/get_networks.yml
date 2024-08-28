@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  tasks:
+    - name: Get network information
+      os_networks_info:
+      register: deployed_networks
+    - name: Get project information
+      os_project_info:
+      register: projects
+    - name: Select VLAN networks
+      set_fact:
+        deployed_networks: '{{deployed_networks.openstack_networks | selectattr("provider:network_type","equalto","vlan") | selectattr("subnets","ne",[])| list}}'
+    - name: Save network IDs
+      set_fact:
+        network_ids: '{{deployed_networks | map(attribute="id") | list}}'
+    - name: Get subnet information
+      os_subnets_info:
+      register: deployed_subnets
+    - name: Select subnets matching VLAN networks
+      set_fact:
+        deployed_subnets: '{{deployed_subnets.openstack_subnets|selectattr("network_id","in",network_ids)|list}}'
+    - name: Save networks to file
+      template:
+        src: netinfo.yml.j2
+        dest: '{{ lookup("env","PWD") }}/{{cloudname}}_networks.yml'
+      vars:
+        networks: '{{deployed_networks}}'
+        subnets: '{{deployed_subnets}}'
+        cloudname: '{{ (lookup("env","OS_AUTH_URL") | urlsplit("hostname")).split(".") | first }}'

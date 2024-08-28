@@ -1,0 +1,47 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+{
+  "nodes":[
+{% for node in nodes if node.ilo_ip in ctrl_ilo_ips %}
+{%if loop.first %}  {%endif%}{
+   "name": "{{node.name}}",
+   "_comment": "{{node.name}}",
+   {% if boot_mode == "uefi" %}
+   "capabilities": "node:controller-node-{{loop.index0}},boot_option:local,boot_mode:uefi",
+   {% else %}
+   "capabilities": "node:controller-node-{{loop.index0}},boot_option:local",
+   {% endif %}
+   {% if os_release == "train" %}
+   "mac": ["{{node.mac}}"],
+   {% elif os_release == "wallaby" %}
+   "ports": [{"address":  "{{node.mac}}", "physical_network": "ctlplane"}],
+   {% endif %}
+   "arch":"x86_64",
+   "pm_type":"{{pm_type}}",
+   "pm_user":"{{pm_user}}",
+   "pm_password":"{{pm_password}}",
+   "pm_addr":"{{ node.ilo_ip }}"
+  },
+{%endfor%}
+{% for node in nodes if node.ilo_ip not in ctrl_ilo_ips%}
+{
+   "name": "{{node.name}}",
+   "_comment": "{{node.name}}",
+   {% if boot_mode == "uefi" %}
+   "capabilities": "node:compute-node-std-{{loop.index0}},boot_option:local,boot_mode:uefi",
+   {% else %}
+   "capabilities": "node:compute-node-std-{{loop.index0}},boot_option:local",
+   {% endif %}
+   {% if os_release == "train" %}
+   "mac": ["{{node.mac}}"],
+   {% elif os_release == "wallaby" %}
+   "ports": [{"address":  "{{node.mac}}", "physical_network": "ctlplane"}],
+   {% endif %}
+   "arch":"x86_64",
+   "pm_type":"{{pm_type}}",
+   "pm_user":"{{pm_user}}",
+   "pm_password":"{{pm_password}}",
+   "pm_addr":"{{ node.ilo_ip }}"
+  }
+  {% if not loop.last %},{% endif %}
+{%endfor%}]
+}

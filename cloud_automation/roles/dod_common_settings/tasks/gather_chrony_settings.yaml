@@ -1,0 +1,56 @@
+---
+  - name: gathering chrony.conf settings
+    shell: grep -Ev '^$|^#' /etc/chrony.conf
+    register: chrony_conf_result
+    ignore_errors: true
+
+  - name: Add chrony results to a list
+    set_fact:
+      chrony_results: "{{chrony_results + [item]}}"
+    loop: "{{chrony_conf_result.stdout_lines}}"
+    when: "item.startswith('server')"
+
+  - name: Exctract ip address
+    set_fact:
+      chrony_results: "{{ (chrony_results + [1] | map('extract', item.split(' '))| list)| reject('search', item)|list  }}"
+    loop: "{{chrony_results}}"
+    when: chrony_results | length > 0
+
+  - name: Validating chrony settings
+    set_fact:
+      expected_results: "{{chrony_check | difference(chrony_results)}}"
+
+  - name: Validating chrony settings
+    set_fact:
+      actual_results: "{{chrony_results | difference(chrony_check)}}"
+
+  - name: Combine chrony settings to a dictionary
+    set_fact:
+      chrony_setting_results: "{{ chrony_setting_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  # add error result to a file if there is an error
+  - block:
+    - name:  add section heading
+      shell: |
+         echo "
+         ****Chrony section******" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - shell: echo "[EXPECTED_RESULTS:]" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+      loop: "{{expected_results}}"
+
+    - shell: echo "[ACTUAL_RESULTS:]" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+      loop: "{{actual_results}}"
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - set_fact:
+      expected_results: []
+      actual_results: []

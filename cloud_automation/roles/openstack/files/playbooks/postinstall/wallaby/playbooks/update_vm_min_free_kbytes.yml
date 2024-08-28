@@ -1,0 +1,7 @@
+- name: Insert setting to increase setting vm.min_free_kbytes
+  sysctl:
+    name: vm.min_free_kbytes
+    value: '180224'
+    sysctl_set: yes
+    sysctl_file: /etc/sysctl.conf
+    reload: yes

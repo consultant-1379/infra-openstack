@@ -1,0 +1,233 @@
+---
+- hosts: localhost
+  gather_subset: min
+  become: no
+  vars:
+    hp_ilo_username: cloud
+    hp_ilo_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          36343338313432393134326138626363343233636363616636363561393631313333656136396163
+          6434343737353336313538633335653237316661313337340a386635336663326461626435623061
+          65326366663234313738616363343865353239666138613832613330666439636166613162643933
+          6166303737663830340a383732303731313835396436623466386235656166303565303131383231
+          6339
+    hp_redfish_system_path: redfish/v1/Systems/1
+    dell_ilo_username: root
+    dell_ilo_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          30643332373837613834623062653562313464353633633436303364663236333638326232643330
+          6235376230323539306637666330646363393732383839660a636465333338633463616432363865
+          32323938633437623862663035323765646431653933383139336634373434373832303136343835
+          3362646462313233320a313030656162343666353430303539343536646436313136646531633938
+          3935
+    dell_redfish_system_path: redfish/v1/Systems/System.Embedded.1
+  tasks:
+    - name: Record VM, Volume and Compute States before powering off the cloud
+      block:
+        - name: Create cloud-restart-logs directory on Director node
+          file:
+            state: directory
+            path:  /var/tmp/cloud-restart-logs
+            mode: 0755
+          register: log_directory
+          delegate_to: director
+
+        # VM Details 
+        - name: Record current state of all VMs Deployed in the overcloud
+          openstack.cloud.server_info:
+            all_projects: yes
+          register: server_info
+
+        - name: Retrieve Specific VM Attributes
+          set_fact:
+            vm_details: "{{ vm_details | default([]) + [ server_info.openstack_servers| json_query(query) | list ] }}"
+          vars:
+            query: "[*].{ hostname: hostname, hypervisor_hostname: hypervisor_hostname, id: id, instance_name: instance_name, project_id: project_id, vm_state: vm_state }"
+
+        - name: Copy vm_details to JSON file
+          copy:
+            content: "{{ vm_details | to_nice_json  }}"
+            dest: "{{ log_directory.path }}/Instance-State-before-Shutoff-{{ ansible_date_time.iso8601_basic_short }}.json"
+          delegate_to: director
+
+        # Compute Details
+        - name: Record current state of compute services running in the overcloud
+          openstack.cloud.compute_service_info:
+          register: compute_info
+    
+        - name: Retrieve Specific Compute Host Attributes
+          set_fact:
+            compute_details: "{{ compute_details | default([]) + [ compute_info.compute_services| json_query(query) | list ] }}"
+          vars:
+            query: "[*].{availability_zone: availability_zone, binary: binary, disabled_reason: disabled_reason, host: host, state: state, status: status }"
+
+        - name: Copy compute_details to JSON file
+          copy:
+            content: "{{ compute_details | to_nice_json  }}"
+            dest: "{{ log_directory.path }}/Compute-Node-State-before-Shutoff-{{ ansible_date_time.iso8601_basic_short }}.json"
+          delegate_to: director
+
+        # Volume Details
+        - name: Record current state of volumes deployed in the overcloud
+          openstack.cloud.volume_info:
+            all_projects: true
+            details: true
+          register: volume_info
+
+        - name: Retrieve Specific Volume Attributes
+          set_fact:
+            volume_details: "{{ volume_details | default([]) + [ volume_info.volumes| json_query(query) | list ] }}"
+          vars:
+            query: "[*].{ attachments: attachments, host: host, id: id, image_id: image_id, is_bootable: is_bootable, name: name, project_id: project_id, size: size, snapshot_id: snapshot_id, source_volume_id: source_volume_id, status: status, volume_type: volume_type }"
+
+        - name: Copy volume_details to JSON file
+          copy:
+            content: "{{ volume_details | to_nice_json  }}"
+            dest: "{{ log_directory.path }}/Volume-State-before-Shutoff-{{ ansible_date_time.iso8601_basic_short }}.json"
+          delegate_to: director
+      when: record_states is defined and record_states == 'Yes'
+
+    # Check hardware type of compute hosts
+    - name: Check if Compute hosts are HP or DELL hardware
+      setup:
+      delegate_to: "{{ groups['Compute']|first }}"
+      register: facts
+
+    - name: Set Compute iLO variables
+      set_fact:
+        username: "{{ hp_ilo_username if 'HP' in facts.ansible_facts.ansible_system_vendor else dell_ilo_username }}"
+        password: "{{ hp_ilo_password if 'HP' in facts.ansible_facts.ansible_system_vendor else dell_ilo_password }}"
+        system_path: "{{ hp_redfish_system_path if 'HP' in facts.ansible_facts.ansible_system_vendor else dell_redfish_system_path }}"
+    
+    # Check power state of all compute nodes
+    - name: Check power state is On
+      uri:
+        force_basic_auth: yes
+        method: GET
+        headers:
+          Accept: application/json
+        user: "{{ username }}"
+        password: "{{ password }}"
+        url: "https://{{ hostvars[item]['ilo_ip'] }}/{{ system_path }}/"
+        validate_certs: no
+        return_content: yes
+      loop: "{{ groups['Compute'] }}"
+      register: power_state
+      until: power_state.json.PowerState == 'On'
+      retries: 60
+      delay: 10
+    
+    # Shutdown all compute nodes
+    - name: Power Off Compute Nodes
+      shell: "poweroff"
+      become: yes
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['Compute'] }}"
+      async: 30
+      poll: 0
+
+    # Check all compute nodes are powered off
+    - name: Check power state is Off
+      uri:
+        force_basic_auth: yes
+        method: GET
+        headers:
+          Accept: application/json
+        user: "{{ username }}"
+        password: "{{ password }}"
+        url: "https://{{ hostvars[item]['ilo_ip'] }}/{{ system_path }}/"
+        validate_certs: no
+        return_content: yes
+      loop: "{{ groups['Compute'] }}"
+      register: power_state
+      until: power_state.json.PowerState == 'Off'
+      retries: 20
+      delay: 10
+
+    # Check hardware type of controller hosts
+    - name: Check if Controller hosts are HP or DELL hardware
+      setup:
+      delegate_to: "{{ groups['Controller']|first }}"
+      register: ctrl_facts
+
+    - name: Set Controller iLO variables
+      set_fact:
+        ctrl_username: "{{ hp_ilo_username if 'HP' in ctrl_facts.ansible_facts.ansible_system_vendor else dell_ilo_username }}"
+        ctrl_password: "{{ hp_ilo_password if 'HP' in ctrl_facts.ansible_facts.ansible_system_vendor else dell_ilo_password }}"
+        ctrl_system_path: "{{ hp_redfish_system_path if 'HP' in ctrl_facts.ansible_facts.ansible_system_vendor else dell_redfish_system_path }}"
+    
+    # Check power state of all controller nodes
+    - name: Check power state is On
+      uri:
+        force_basic_auth: yes
+        method: GET
+        headers:
+          Accept: application/json
+        user: "{{ ctrl_username }}"
+        password: "{{ ctrl_password }}"
+        url: "https://{{ hostvars[item]['ilo_ip'] }}/{{ ctrl_system_path }}/"
+        validate_certs: no
+        return_content: yes
+      loop: "{{ groups['Controller'] }}"
+      register: power_state
+      until: power_state.json.PowerState == 'On'
+      retries: 60
+      delay: 10
+
+    # Stop pcs cluster and tripleo containers on all controller nodes
+    - name: Stop pcs cluster on all controller nodes
+      command: pcs cluster stop --all
+      become: yes
+      delegate_to: "{{ groups['Controller']|first }}"
+
+    - name: Check if podman is installed on the controller nodes
+      stat: 
+        path: /usr/bin/podman
+      delegate_to: "{{ groups['Controller']|first }}"
+      register: podman
+    
+    - name: Set container_service to podman if installed else set to docker
+      set_fact: 
+        container_service: "{{ 'podman' if podman.stat.exists else 'docker' }}"
+    
+    # Clouds using docker
+    - name: Stop docker containers on controller nodes
+      shell: "{{ container_service }} stop $({{ container_service }} ps -aq)"
+      loop: "{{ groups['Controller'] }}"
+      become: yes      
+      when: not podman.stat.exists
+
+    # Clouds using podman
+    - name: Stop tipleo services
+      shell: "systemctl list-unit-files tripleo_* --state=enabled | awk '/^tripleo_/{ print $1 }' | xargs systemctl stop"
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['Controller'] }}"
+      become: yes
+      when: podman.stat.exists
+
+    # Shutdown all controller nodes
+    - name: Power Off Controller Nodes
+      shell: "shutdown -h now"
+      become: yes
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['Controller'] }}"
+      async: 30
+      poll: 0
+
+    # Check all controller nodes are powered off
+    - name: Check power state is Off
+      uri:
+        force_basic_auth: yes
+        method: GET
+        headers:
+          Accept: application/json
+        user: "{{ username }}"
+        password: "{{ password }}"
+        url: "https://{{ hostvars[item]['ilo_ip'] }}/{{ system_path }}/"
+        validate_certs: no
+        return_content: yes
+      loop: "{{ groups['Controller'] }}"
+      register: power_state
+      until: power_state.json.PowerState == 'Off'
+      retries: 20
+      delay: 10

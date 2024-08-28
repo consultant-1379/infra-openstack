@@ -1,0 +1,22 @@
+---
+- hosts: Compute
+  gather_facts: no
+
+  tasks:
+    - name: get memory
+      shell:  free -m | awk '/Mem/{ print $7}'
+      register: mem_result
+
+    - set_fact:
+        memory_avail:
+          host : '{{ inventory_hostname }}'
+          available_memory:  "{{mem_result.stdout}}"
+    - set_fact:
+        computes: '{{ ansible_play_hosts |map("extract",hostvars,"memory_avail")|list}}'
+
+    - name: Save the least used compute node to a file.
+      template:
+        src: least_used_node.txt.j2
+        dest: least_used_node.txt
+      delegate_to: localhost
+      run_once: yes

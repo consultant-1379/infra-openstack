@@ -1,0 +1,1 @@
+director ansible_host=10.232.16.7 ansible_user=stack

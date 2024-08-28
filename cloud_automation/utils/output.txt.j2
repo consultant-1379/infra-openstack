@@ -1,0 +1,7 @@
+{% for host in ansible_play_hosts %}
+Top 5 VMs (by memory usage) on  {{ host }}:
+
+{% for line in  hostvars[host]["listOfVMsAndNova"]|map('join',' ')|flatten|list %}
+{{line}}
+{% endfor %} 
+{% endfor %}

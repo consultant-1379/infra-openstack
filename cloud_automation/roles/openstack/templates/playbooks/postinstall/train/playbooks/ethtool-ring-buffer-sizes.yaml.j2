@@ -1,0 +1,65 @@
+---
+- name: Get active interface names for all nodes
+  block:
+    - name: Get list of all interfaces
+      setup:
+        filter: ansible_interfaces
+      register: interface_list
+
+    - name: Save interface names and filter for eno and ens interfaces
+      set_fact:
+        if_list: '{{ interface_list["ansible_facts"]["ansible_interfaces"] | select("match","^en[ops]") | list }}'
+
+    - name: Get list of active eno and ens interfaces
+      set_fact:
+        ansible_eth: "{{ ansible_eth | default([]) + [ item ] }}"
+      loop: "{{ if_list }}"
+      when: "ansible_facts[item]['active'] ==  true"
+
+- name: Retrieve & Store RX/TX Values for Traffic Interfaces
+  block:
+    - name: Get RX and TX Values for traffic interfaces
+      shell: "ethtool -g {{ item }}"
+      loop: '{{ ansible_eth | select("match","^en[ops]") | list }}'
+      register: ethtool_traffic
+
+    - name: Save traffic RX maximum size
+      set_fact:
+        traffic_rx: '{{ item.stdout_lines | select("match","^RX:") | first | regex_replace("RX:\t\t","")}}'
+      loop: "{{ ethtool_traffic.results }}"
+
+    - name: Save traffic TX maximum size
+      set_fact:
+        traffic_tx: '{{ item.stdout_lines | select("match","^TX:") | first | regex_replace("TX:\t\t","")}}'
+      loop: "{{ ethtool_traffic.results }}"
+
+- name: Retrieve & Store RX/TX Values for Storage Interfaces
+  block:
+    - name: Get RX and TX Values for Storage interfaces
+      shell: "ethtool -g {{ item }}"
+      loop: '{{ ansible_eth | select("match","^en[ops]") | list }}'
+      register: ethtool_storage
+
+    - name: Save Storage RX maximum size
+      set_fact:
+        storage_rx: '{{ item.stdout_lines | select("match","^RX:") | first | regex_replace("RX:\t\t","")}}'
+      loop: "{{ ethtool_storage.results }}"
+
+    - name: Save Stroage TX maximum size
+      set_fact:
+        storage_tx: '{{ item.stdout_lines | select("match","^TX:") | first | regex_replace("TX:\t\t","")}}'
+      loop: "{{ ethtool_storage.results }}"
+
+- name: Update os-net-config with RX & TX values
+  block:
+    - name: Copy update_net_config.py script to servers
+      copy:
+        src: update_net_config.py
+        dest: /tmp/update_net_config.py
+    - name: Run update_net_config.py script
+      command: "python3 /tmp/update_net_config.py  --traffic_rx {{ traffic_rx }} --traffic_tx {{ traffic_tx }} --storage_rx {{ storage_rx }} --storage_tx {{ storage_tx }} /etc/os-net-config/config.json"
+    - name: Run os-net-config script on each server
+      command: os-net-config -c /etc/os-net-config/config.json
+
+- name: Run ifup on all storage interfaces
+  shell: "ifup vlan{{storage_vlan_id}};ifup vlan{{storage_mgmt_vlan_id}};ifup vlan{{storage_nfs_vlan_id}}"

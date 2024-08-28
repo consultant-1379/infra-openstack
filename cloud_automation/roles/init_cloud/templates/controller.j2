@@ -1,0 +1,66 @@
+---
+- hosts: Controller
+  gather_facts: false
+  become: yes
+  serial: 1
+  tags: controller
+  vars_files: controller_vars.yaml
+  
+  tasks:
+    - include: playbooks/set_nova_metadata_controller.yaml
+      tags: set_nova_metadata
+    
+    - include: playbooks/update_nova_controller_rpc_conn.yml
+      tags: train_update_nova
+
+    - include: playbooks/update_executor_pool_size.yml
+      tags: update_executor
+
+    - include: playbooks/update_idle_timeout.yaml
+      tags: update_idle_timeout
+
+    - include: playbooks/add_new_ca.yml
+      tags: add_new_ca
+
+    - include: playbooks/horizon_dropdownitems.yaml
+      tags: horizon_dropdownitems
+
+    - include: playbooks/memcache-limit.yaml
+      tags: memcache_limit
+    
+    - include: playbooks/mtu_internal_network.yml
+      tags: mtu_internal_network
+    
+    - include: playbooks/mysql_tuning.yml
+      tags: mysql_tuning
+    
+    - include: playbooks/pcp-setup-control.yml
+      tags: pcp_setup
+    
+    - include: playbooks/policy.yml
+      tags: policy
+    
+    - include: playbooks/service-tokens-enable-controller.yml
+      tags: tokens_controller
+    
+    - include: playbooks/stonith-power-wait.yml
+      tags: stonith
+
+{% if storage_type | lower == 'vnx' %}
+    - include: playbooks/cinder_thin_vnx.yml
+      tags: cinder_thin_vnx
+{% endif %}
+
+    - include: playbooks/restart_services.yaml
+      tags: restart_services
+
+    - name: Create stackcentric user
+      include: playbooks/create_stackcentric_user.yml
+      delegate_to: localhost
+      tags: create_stackcentric_use
+
+    - name: Create openstack roles
+      shell: source ~/overcloudrc; openstack role create reset_role; openstack role create heat_stack_owner; openstack role list
+      become: no
+      delegate_to: localhost
+      tags: openstack_roles

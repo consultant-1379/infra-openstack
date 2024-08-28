@@ -1,0 +1,71 @@
+---
+  - include: gather_internal_ips.yaml
+
+  - name: Gathering cinder.conf settings
+    shell: cat {{ item.file }} | grep -Ev '^$|^#' | grep {{ item.setting }}
+    loop: '{{ cinder_settings }}'
+    register: gather_result
+    ignore_errors: true
+
+  - include: common/storage_settings.yml
+
+  - name: check nova containers are running
+    shell:  podman inspect `podman ps|grep -i "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ cinder_containers }}"
+    register: gather_container_result
+    ignore_errors: yes
+
+  - name: Combine results
+    set_fact:
+      cinder_results: "{{ cinder_results + temp}}"
+
+  - name: Removing spaces from values
+    set_fact:
+      cinder_results: "{{cinder_results + [item.stdout| regex_replace(' ','')]}}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Remove special char (cinder_settings train)
+    set_fact:
+      cinder_results: "{{cinder_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Update memcache results
+    set_fact:
+      cinder_results: "{{cinder_results + [item| regex_replace('^.*=(.*)$','\\1')]}}"
+    loop: "{{cinder_results}}"
+    when: "'servers' in item"
+  
+  - name: Split internal ip address into a list
+    set_fact:
+      cinder_results: "{{(cinder_results + item.split(',')) | reject('search', item) | list}}"
+    loop: "{{cinder_results | select() | list}}"
+    when: item != '' and item[0] | int == 1
+
+  - name: Remove trailing chars (cinder_settings train)
+    set_fact:
+      cinder_results: "{{cinder_results | map('replace', ',' ,'') | list}}"
+
+  - name: Removing white spaces from expected results
+    set_fact:
+      results: "{{(cinder_check + memcache_server)  | regex_replace(' ','')}}"
+
+  - name: Validating cinder settings expected
+    set_fact:
+      expected_results: "{{results| difference(cinder_results|select()|list)}}"
+
+  - name: Validating cinder settings actual
+    set_fact:
+      actual_results: "{{(cinder_results|select()|list)| difference(results)}}"
+
+  - name: Combine cinder results to a dictionary (train)
+    set_fact:
+      cinder_settings_results: "{{ cinder_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: cinder
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

@@ -1,0 +1,27 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+parameter_defaults:
+  # Metadata through Neutron DHCP
+  NeutronEnableIsolatedMetadata: true
+  NeutronEnableForceMetadata: true
+
+  # Neutron Logical bridge mapping between a custom name and OVS bridge
+  NeutronBridgeMappings: 'datacentre:br-ex'
+
+  # Neutron VLAN range per bridge
+  NeutronNetworkVLANRanges: 'datacentre'
+
+  # Neutron Flat Network
+  NeutronFlatNetworks: 'datacentre'
+
+  # Default MTU for the overlay network making sure the VM always gets standard the 1500 byte
+  {% if os_release == "train" %}
+  NeutronGlobalPhysnetMtu: {{ovs_global_physnet_mtu}}
+  {% elif os_release == "wallaby" %}
+  NeutronGlobalPhysnetMtu: 1500
+  {% endif %}
+
+  {% if use_ovn == "false"%}
+  # Security Group
+  NeutronFirewallDriver: 'openvswitch'
+  {% endif %}
+  

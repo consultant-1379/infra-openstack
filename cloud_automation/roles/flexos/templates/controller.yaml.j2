@@ -1,0 +1,140 @@
+heat_template_version: queens
+
+description: >
+  Controller pre-configuration hook (for FlexOS)
+
+parameters:
+  server:
+    type: string
+  DeployIdentifier:
+    type: string
+{% if glance_backend == 'file' %}
+  GlanceNfsMount:
+    type: string
+  GlanceNfsOptions:
+    type: string
+  GlanceNfsFirstServer:
+    type: string
+  GlanceNfsSecondServer:
+    type: string
+  GlanceNfsEnableTrunking:
+    type: string
+  GlanceStagingNfsMount:
+    type: string
+  GlanceStagingNfsOptions:
+    type: string
+  GlanceStagingNfsFirstServer:
+    type: string
+  GlanceStagingNfsSecondServer:
+    type: string
+  GlanceStagingNfsEnableTrunking:
+    type: string
+{% endif %}
+
+resources:
+{% if glance_backend == 'file' %}
+  GlanceNFS:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: DeployIdentifier
+        - name: NfsMount
+        - name: NfsOptions
+        - name: NfsFirstServer
+        - name: NfsSecondServer
+        - name: NfsEnableTrunking
+      config: {get_file: scripts/nfs.sh}
+  GlanceNFSDeployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      actions: ['CREATE'] # Do this on CREATE only
+      server: {get_param: server}
+      config: {get_resource: GlanceNFS}
+      input_values:
+        deploy_identifier: {get_param: DeployIdentifier}
+        NfsMount: {get_param: GlanceNfsMount}
+        NfsOptions: {get_param: GlanceNfsOptions}
+        NfsFirstServer: {get_param: GlanceNfsFirstServer}
+        NfsSecondServer: {get_param: GlanceNfsSecondServer}
+        NfsEnableTrunking: {get_param: GlanceNfsEnableTrunking}
+
+  GlanceStagingNFS:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: DeployIdentifier
+        - name: NfsMount
+        - name: NfsOptions
+        - name: NfsFirstServer
+        - name: NfsSecondServer
+        - name: NfsEnableTrunking
+      config: {get_file: scripts/nfs.sh}
+  GlanceStagingNFSDeployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      actions: ['CREATE'] # Do this on CREATE only
+      server: {get_param: server}
+      config: {get_resource: GlanceStagingNFS}
+      input_values:
+        deploy_identifier: {get_param: DeployIdentifier}
+        NfsMount: {get_param: GlanceStagingNfsMount}
+        NfsOptions: {get_param: GlanceStagingNfsOptions}
+        NfsFirstServer: {get_param: GlanceStagingNfsFirstServer}
+        NfsSecondServer: {get_param: GlanceStagingNfsSecondServer}
+        NfsEnableTrunking: {get_param: GlanceStagingNfsEnableTrunking}
+{% endif %}
+
+  Multipathd:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: DeployIdentifier
+      config: {get_file: scripts/multipathd.sh}
+  MultipathdDeployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      actions: ['CREATE', 'UPDATE'] # Do this on CREATE and UPDATE as well
+      server: {get_param: server}
+      config: {get_resource: Multipathd}
+      input_values:
+        deploy_identifier: {get_param: DeployIdentifier}
+  FlexosConf:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: DeployIdentifier
+      config: {get_file: scripts/install_sdc.bsh}
+  FlexosConfDeployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      actions: ['CREATE', 'UPDATE'] # Do this on CREATE and UPDATE as well
+      server: {get_param: server}
+      config: {get_resource: FlexosConf}
+      input_values:
+        deploy_identifier: {get_param: DeployIdentifier}
+  LVMGlobalFilter:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      inputs:
+        - name: DeployIdentifier
+      config: {get_file: scripts/lvm_global_filter.sh}
+  LVMGlobalFilterDeployment:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      actions: ['CREATE', 'UPDATE'] # Do this on CREATE and UPDATE as well
+      server: {get_param: server}
+      config: {get_resource: LVMGlobalFilter}
+      input_values:
+        deploy_identifier: {get_param: DeployIdentifier}
+
+outputs:
+{% if glance_backend == 'file' %}
+  deploy_stdout:
+    description: Deployment reference, used to trigger puppet apply on changes
+    value: {get_attr: [GlanceNFSDeployment, deploy_stdout]}
+{% endif %}

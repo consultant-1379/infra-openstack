@@ -1,0 +1,43 @@
+---
+  - name: List all vms memory usage.
+    shell:  ps aux --sort -rss | grep 'qemu-kvm' |awk '{ gsub(/-uuid|-smbios/,"",$28);printf("%dGB %s\n",$6/1024/1024,$28) }'
+    register: process_list
+
+  - name: Get nova names for VMs.
+    shell: virsh dumpxml "{{vm_size_and_uuid.split(' ')[-1]}}" | awk '/nova:name/{gsub(/<[\/]?nova:name>/,"",$1);print $1 }'
+    loop: "{{process_list.stdout_lines}}"
+    loop_control:
+      loop_var: vm_size_and_uuid
+    register: nova_names
+    become: true
+    when: vm_size_and_uuid.split(' ')[-1] | length  > 0 and vm_size_and_uuid.split(' ')[0] | regex_replace('G.(.*)$', '\\1') | int >= min_vm_size and vm_size_and_uuid.split(' ')[0] | regex_replace('G.(.*)$', '\\1') | int <= max_vm_size
+
+  - set_fact:
+      nova_list: '{{nova_list | default([]) + [item["vm_size_and_uuid"].split(" ") + item["stdout_lines"] ] }}'
+    loop: '{{nova_names.results}}'
+    when: '"skipped" not in item'
+
+  - name: Get attached volumes
+    shell: source /home/stack/overcloudrc; openstack server show {{vm_uuid[1]}} -f value -c volumes_attached
+    register: volumes
+    loop: '{{nova_list}}'
+    loop_control:
+      loop_var: vm_uuid
+    delegate_to: director
+    ignore_errors: yes
+
+  - set_fact:
+      volumes: '{{volumes.results | map(attribute= "stdout_lines") | list}}'
+
+  - name: Validate volumes
+    process_data:
+      servers: '{{nova_list}}'
+      volumes: '{{volumes}}'
+      server_group: '{{server_groups.stdout | from_json}}'
+    register: validated_vms
+
+  - include: hosts_for_vms.yaml
+    loop: '{{validated_vms["anti_affinity"]}}'
+    loop_control:
+      loop_var: vm_list
+    when: validated_vms["anti_affinity"] is defined

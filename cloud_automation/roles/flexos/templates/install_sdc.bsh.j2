@@ -1,0 +1,65 @@
+#!/bin/bash
+echo "$(date -Iseconds) Installing FlexOS SDC package and configuration file"
+echo "$(date -Iseconds) Creating /opt/emc/scaleio/openstack"
+mkdir -p /opt/emc/scaleio/openstack
+
+echo "$(date -Iseconds) Creating /opt/emc/scaleio/openstack/connector.conf"
+cat /dev/null > /opt/emc/scaleio/openstack/connector.conf
+cat >> /opt/emc/scaleio/openstack/connector.conf << EOF
+[{{ san_backend_name }}]
+san_password = {{ san_password }}
+EOF
+[ $? -ne 0 ] && echo "$(date -Iseconds) Error writing /opt/emc/scaleio/openstack/connector.conf"
+
+echo "Creating temporary directory"
+tempdir=$(mktemp -d -t flexos_tmp.XXX)
+[ $? -ne 0 ] && echo "$(date -Iseconds) Error creating temporary directory for flexos"
+
+echo "$(date -Iseconds) Changing to ${tempdir} directory"
+cd ${tempdir}
+
+echo "Creating scini.fe"
+cat >> scini.fe << EOF
+/usr/bin/emc/scaleio/(.*).ko system_u:object_r:modules_object_t:s0
+/bin/emc/scaleio/(.*).ko system_u:object_r:modules_object_t:s0
+EOF
+
+echo "Creating scini.te"
+cat >> scini.te << EOF
+module scini 1.0;
+require {
+    type insmod_t;
+    type modules_object_t;
+    class system module_load;
+    }
+EOF
+
+echo "Checking scini module"
+checkmodule -M -m scini.te -o scini.mod
+[ $? -ne 0 ] && echo "$(date -Iseconds) Error running checkmodule on scini module"
+echo "Generating scini selinux package"
+semodule_package -o scini.pp -m scini.mod -f scini.fe
+[ $? -ne 0 ] && echo "$(date -Iseconds) Error creating scini selinux package"
+echo "Installing scini package"
+semodule -i scini.pp
+[ $? -ne 0 ] && echo "$(date -Iseconds) Error installing scini selinux package"
+
+
+{% set rhel_version = "el9-" if os_release == "wallaby" else "" %}
+{% set pkg = "scalio-sdc-" + sdc_agent_version | replace(".","") + "-" + rhel_version  + "latest.rpm" %}
+
+echo "$(date -Iseconds) Downloading FlexOS SDC package"
+curl -O 10.44.77.158/flexos/{{ pkg }} || echo "$(date -Iseconds) Error downloading FlexOS SDC package"
+# generate the sdc uuid, same is done on flex and sdc is added on flex before running the install
+export SDC_GUID=$(uuidgen --name ${HOSTNAME} --sha1 --namespace @dns)
+echo "SDC_GUID is ${SDC_GUID}"
+echo "$(date -Iseconds) Installing FlexOS SDC package"
+MDM_IP={{ mdm_ips | join(',') }} SDC_GUID=${SDC_GUID} yum install {{ pkg }} -y || echo "$(date -Iseconds) Error installing FlexOS SDC package"
+
+rpm -q EMC-ScaleIO-sdc --quiet && echo "$(date -Iseconds) was successfully installed."
+
+echo "$(date -Iseconds) Cleaning up ${tempdir}"
+cd
+rm -rf ${tempdir}
+
+echo "$(date -Iseconds) Finished"

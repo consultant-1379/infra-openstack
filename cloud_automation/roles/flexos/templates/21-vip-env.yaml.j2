@@ -1,0 +1,13 @@
+# Required as openstack overcloud vip provision doesn't set these
+parameter_defaults:
+  # Fixed Virtual IP Addresses
+  # VIP corresponding to cloudname domain name
+  PublicVirtualFixedIPs: [{'ip_address': '{{ public_vip }}' }]
+  # First IP address from the Internal API subnet
+  InternalApiVirtualFixedIPs: [{'ip_address': '{{ internal_api_ipv6_start if internal_api_ipv6_subnet is defined else internal_api_pool_start }}' }]
+  # Second IP address from the Internal API subnet
+  RedisVirtualFixedIPs: [{'ip_address': '{{ internal_api_ipv6_start|ipmath(1) if internal_api_ipv6_subnet is defined else internal_api_pool_start|ipmath(1) }}' }]
+  # First IP address from the Storage subnet
+  StorageVirtualFixedIPs: [{'ip_address': '{{storage_pool_start}}' }]
+  # First IP address from the Storage Management subnet
+  StorageMgmtVirtualFixedIPs: [{'ip_address': '{{storage_mgmt_pool_start}}' }]

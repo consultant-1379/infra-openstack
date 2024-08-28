@@ -1,0 +1,128 @@
+resource_registry:
+  # Ports for Controller nodes :
+  {% if external_ipv6_subnet is defined -%}
+  OS::TripleO::Controller::Ports::ExternalPort: {{openstack_usr_templates_directory}}/network/ports/external_from_pool_v6.yaml
+  {% else -%}
+  OS::TripleO::Controller::Ports::ExternalPort: {{openstack_usr_templates_directory}}/network/ports/external_from_pool.yaml
+  {% endif -%}
+  {% if internal_api_ipv6_subnet is defined -%}
+  OS::TripleO::Controller::Ports::InternalApiPort: {{openstack_usr_templates_directory}}/network/ports/internal_api_from_pool_v6.yaml
+  {% else -%}
+  OS::TripleO::Controller::Ports::InternalApiPort: {{openstack_usr_templates_directory}}/network/ports/internal_api_from_pool.yaml
+  {% endif -%}
+  OS::TripleO::Controller::Ports::StoragePort: {{openstack_usr_templates_directory}}/network/ports/storage_from_pool.yaml
+  OS::TripleO::Controller::Ports::StorageMgmtPort: {{openstack_usr_templates_directory}}/network/ports/storage_mgmt_from_pool.yaml
+  {% if glance_backend == "file" -%}
+  OS::TripleO::Controller::Ports::StorageNfsPort: {{openstack_usr_templates_directory}}/network/ports/storage_nfs_from_pool.yaml
+  {% endif -%}
+  OS::TripleO::Controller::Ports::TenantPort: {{openstack_usr_templates_directory}}/network/ports/tenant_from_pool.yaml
+  
+  # Ports for Compute nodes:
+  OS::TripleO::Compute::Ports::ExternalPort:    {{openstack_usr_templates_directory}}/network/ports/noop.yaml
+  {% if internal_api_ipv6_subnet is defined -%}
+  OS::TripleO::Compute::Ports::InternalApiPort: {{openstack_usr_templates_directory}}/network/ports/internal_api_from_pool_v6.yaml
+  {% else -%}
+  OS::TripleO::Compute::Ports::InternalApiPort: {{openstack_usr_templates_directory}}/network/ports/internal_api_from_pool.yaml
+  {% endif -%}
+  OS::TripleO::Compute::Ports::StoragePort: {{openstack_usr_templates_directory}}/network/ports/storage_from_pool.yaml
+  OS::TripleO::Compute::Ports::StorageMgmtPort: {{openstack_usr_templates_directory}}/network/ports/storage_mgmt_from_pool.yaml
+  {% if glance_backend == "file" -%}
+  OS::TripleO::Compute::Ports::StorageNfsPort: {{openstack_usr_templates_directory}}/network/ports/storage_nfs_from_pool.yaml
+  {% endif -%}
+  OS::TripleO::Compute::Ports::TenantPort: {{openstack_usr_templates_directory}}/network/ports/tenant_from_pool.yaml
+
+parameter_defaults:
+  # Fixed Virtual IP Addresses
+  # VIP corresponding to cloudname domain name
+  PublicVirtualFixedIPs: [{'ip_address': '{{ public_vip }}' }]
+  # First IP address from the Internal API subnet
+  InternalApiVirtualFixedIPs: [{'ip_address': '{{ internal_api_ipv6_start if internal_api_ipv6_subnet is defined else internal_api_pool_start }}' }]
+  # Second IP address from the Internal API subnet
+  RedisVirtualFixedIPs: [{'ip_address': '{{ internal_api_ipv6_start|ipmath(1) if internal_api_ipv6_subnet is defined else internal_api_pool_start|ipmath(1) }}' }]
+  # First IP address from the Storage subnet
+  StorageVirtualFixedIPs: [{'ip_address': '{{storage_pool_start}}' }]
+  # First IP address from the Storage Management subnet
+  StorageMgmtVirtualFixedIPs: [{'ip_address': '{{storage_mgmt_pool_start}}' }]
+
+  {# create variables for VIP offsets #}
+  {% set controller_start_ip = 0 %}
+
+  {% set controller_end_ip = controller_count %}
+  {% set compute_start_ip = controller_count %}
+
+  {% set compute_end_ip = compute_start_ip + compute_count %}
+  {% set num_internal_api_vips = 2 %}
+  {% set num_storage_vips = 1 %}
+  {% set num_storage_mgmt_vips = 1 %}
+
+  ControllerIPs:
+    # Each controller will get an IP from the lists below, first controller, first IP
+    external:
+    {% if controller_external_ipv6_ips is defined -%}
+    {% for ip in controller_external_ipv6_ips -%}
+    - {{ip}}
+    {% endfor -%}
+    {% else -%}
+    {% for ip in controller_external_ips -%}
+    - {{ip}}
+    {% endfor -%}
+    {% endif -%}
+    internal_api:
+    {% if controller_internal_ipv6_api_ips is defined -%}
+    {% for ip in controller_internal_ipv6_api_ips -%}
+    - {{ip}}
+    {% endfor -%}
+    {% else -%}
+    {% for n in range(controller_start_ip + num_internal_api_vips,controller_end_ip + num_internal_api_vips) -%}
+    - {{ internal_api_pool_start | ipmath(n) }}
+    {% endfor -%}
+    {% endif -%}
+    storage:
+    {% for n in range(controller_start_ip + num_storage_vips,controller_end_ip + num_storage_vips)-%}
+    - {{ storage_pool_start | ipmath(n)}}
+    {% endfor -%}
+    {% if glance_backend == "file" -%}
+    storage_nfs:
+    {% for n in range(controller_start_ip,controller_end_ip) -%}
+    - {{ storage_nfs_pool_start |ipmath(n) }}
+    {% endfor -%}
+    {% endif -%}
+    storage_mgmt:
+    {% for n in range(controller_start_ip + num_storage_mgmt_vips,controller_end_ip + num_storage_mgmt_vips) -%}
+    - {{storage_mgmt_pool_start|ipmath(n)}}
+    {% endfor -%}
+    tenant:
+    {% for n in range(controller_start_ip,controller_end_ip) -%}
+    - {{ tenant_pool_start|ipmath(n) }}
+    {% endfor %}
+
+  ComputeIPs:
+    # Each compute will get an IP from the lists below, first compute, first IP
+    internal_api:
+    {% if internal_api_ipv6_subnet is defined -%}
+    {% for n in range(compute_start_ip + num_internal_api_vips,compute_end_ip + num_internal_api_vips) -%}
+    - {{internal_api_ipv6_start|ipmath(n)}}
+    {% endfor -%}
+    {% else -%}
+    {% for n in range(compute_start_ip + num_internal_api_vips,compute_end_ip + num_internal_api_vips) -%}
+    - {{internal_api_pool_start|ipmath(n) }}
+    {% endfor -%}
+    {% endif -%}
+    storage:
+    {% for n in range(compute_start_ip + num_storage_vips,compute_end_ip + num_storage_vips) -%}
+    - {{storage_pool_start|ipmath(n)}}
+    {% endfor -%}
+    {% if glance_backend == "file" -%}
+    storage_nfs:
+    {% for n in range(compute_start_ip,compute_end_ip) -%}
+    - {{storage_nfs_pool_start|ipmath(n)}}
+    {% endfor -%}
+    {% endif -%}
+    storage_mgmt:
+    {% for n in range(compute_start_ip + num_storage_mgmt_vips,compute_end_ip + num_storage_mgmt_vips) -%}
+    - {{storage_mgmt_pool_start|ipmath(n)}}
+    {% endfor -%}
+    tenant:
+    {% for n in range(compute_start_ip,compute_end_ip) -%}
+    - {{tenant_pool_start|ipmath(n)}}
+    {% endfor -%}

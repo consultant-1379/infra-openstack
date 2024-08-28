@@ -1,0 +1,29 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+resource_registry:
+  {% if os_release == "train" %}
+  OS::TripleO::Services::CinderBackendPowerFlex: /usr/share/openstack-tripleo-heat-templates/deployment/cinder/cinder-backend-dellemc-powerflex-puppet.yaml
+  {% elif os_release == "wallaby" %}
+  OS::TripleO::Services::CinderBackendDellEMCPowerFlex: /usr/share/openstack-tripleo-heat-templates/deployment/cinder/cinder-backend-dellemc-powerflex-puppet.yaml
+  {% endif %}
+
+parameter_defaults:
+  CinderEnableIscsiBackend: false
+  CinderEnablePowerFlexBackend: true
+  CinderPowerFlexBackendName: '{{san_backend_name}}'
+  CinderPowerFlexSanIp: '{{san_ip}}'
+  CinderPowerFlexSanLogin: '{{san_user}}'
+  CinderPowerFlexSanPassword: '{{san_password}}'
+  CinderPowerFlexStoragePools: '{{san_storage_pool}}'
+  CinderPowerFlexAllowMigrationDuringRebuild: false
+  CinderPowerFlexAllowNonPaddedVolumes: false
+  CinderPowerFlexMaxOverSubscriptionRatio: 2.5
+  CinderPowerFlexRestServerPort: 443
+  CinderPowerFlexServerApiVersion: ''
+  CinderPowerFlexUnmapVolumeBeforeDeletion: false
+  CinderPowerFlexSanThinProvision: true
+  CinderPowerFlexDriverSSLCertVerify: false
+  CinderPowerFlexDriverSSLCertPath: ''
+  {% if os_release == "wallaby" %}
+  CinderDefaultVolumeType: powerflex_compressed 
+  {% endif %}
+  

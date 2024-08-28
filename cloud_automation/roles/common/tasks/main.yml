@@ -1,0 +1,60 @@
+- name: Get information on HPE blades
+  block:
+    - name: Set pip_binary variable
+      set_fact:
+        pip_binary: '{{ "/usr/bin/pip3" if ansible_distribution_major_version == "8" else "/usr/local/bin/pip3" }}'
+    - name: Check if pip is installed
+      stat:
+        path: '{{ pip_binary }}'
+      register: stat_pip
+    - name: Download pip to the director
+      uri:
+        url: https://bootstrap.pypa.io/get-pip.py
+        dest: /tmp/get-pip.py
+      environment: "{{ {'http_proxy': http_proxy, 'https_proxy': http_proxy} if use_proxy else {} }}"
+      when: not stat_pip.stat.exists
+    - name: Install pip
+      shell: "python /tmp/get-pip.py {{ '--proxy=' + http_proxy if use_proxy else ''}}"
+      become: yes
+      when: not stat_pip.stat.exists
+    - name: Get python dependencies
+      pip:
+        executable: '{{ pip_binary }}'
+        name: "{{item}}"
+      loop:
+        - python-hpilo
+        - dnspython
+        - lxml
+      environment: "{{ {'http_proxy': http_proxy, 'https_proxy': http_proxy} if use_proxy else {} }}"
+      become: yes
+      tags:
+        - deploy
+        - get_server_info
+
+    - name: Get information from OA/iLOs
+      import_tasks: getilos.yml
+
+  when: is_hpe_deployment |bool
+
+- name: Get information on Dell servers
+  include_role:
+    name: common
+    tasks_from: get_dell_servers.yml
+  when: is_dell_deployment | bool
+  tags:
+    - deploy
+    - get_server_info
+
+- name: debug message
+  debug: 
+    msg: '{{ nodes }}'
+
+#- name: Check if there nodes with missing MAC addresses
+#  assert:
+#    that: node.mac is not None
+#    fail_msg: 'Server {{ node.name }} has no MAC address information from the iLO/iDRAC'
+#  loop: '{{ nodes }}'
+#  loop_control:
+#    loop_var: node
+#    label: '{{node.name}}'
+

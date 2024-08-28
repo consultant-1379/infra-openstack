@@ -1,0 +1,53 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+{% set header = "Network Address;Start IP;End IP; host_name; OS Name; OS version;  CI Type; Location;  Usage;Interface description; CPU count;  CPU Speed; CPU Type; RAM; Disk; DNS names;Interface Name;MAC Address;CI Resp. Consumer ST;CI Provider ST;Force CI change;OOB Management;CI part of;CI runtime dep ;Tags;Service;Service Scope;CI description;DHCP;Is Primary;Consumer Tenant;Other Consumers;Provider Tenant;Network Consumer" %}
+{{ header }}
+{% set parentci = cloud %}
+{% set ciconsumer = "EST-NM-ATH-SAN-OpenStackInfra" %}
+{% set ciprovider = "GST-IEAT Installation" %}
+{% set consumertenant = "PDU OSS" %}
+{% set providertenant = "LABOPS-IEAT" %}
+{% set location = "Athlone" %}
+{% set usage = "Openstack" %}
+;;;{{ parentci }};;;Cluster;{{ location }};{{ usage }};;;;;;;;;;{{ ciconsumer }};{{ ciprovider }};;;;;;;;;;;{{ consumertenant }};;{{ providertenant }};
+{% for host in ansible_play_hosts %}
+    {% if  hostvars[host]["ansible_facts"]["facter_is_virtual"] %}
+        {% set citype =  "Virtual Machine" %}
+        {% set hydrahost =  hostvars[host]["ansible_facts"]["facter_networking"]["hostname"] %}
+    {% else %}
+        {% set citype =  "Server" %}
+        {% set facterhost =  hostvars[host]["ansible_facts"]["facter_networking"]["hostname"] %}
+        {% set hydrahost  =  hydra_hosts[facterhost] %}
+    {% endif %}
+    {% set operatingsystem =  hostvars[host]["facter_os"]["family"] %}
+    {% set operatingsystemrelease = hostvars[host]["facter_os"]["release"]["full"] %}
+    {% for interface,val in hostvars[host]["ansible_facts"]["facter_networking"]["interfaces"].items() if interface != "lo"  and interface != "docker0" and interface != "o-hm0" and interface != "o_hm0" %}
+        {% if "bindings" in val %}
+                {% for b in val["bindings"] %}
+                    {% set netmask = b["netmask"] %}
+                    {% if netmask != "255.255.255.255" %}
+                      {% set address = b["address"] %}
+                      {% set netmask = b["netmask"] %}
+                      {% set network = b["network"] %}
+                      {% set network_cidr = (network + "/" + netmask)|ipaddr('net') %}
+                    {% else %}
+                      {% set address = b["address"] %}
+                      {% set netmask = hostvars[host]["ansible_facts"]["facter_networking"]["interfaces"][interface]["bindings"]|map(attribute="netmask")|first %}
+                      {% set network = hostvars[host]["ansible_facts"]["facter_networking"]["interfaces"][interface]["bindings"]|map(attribute="network")|first %}
+                      {% set network_cidr = (network + "/" + netmask)|ipaddr('net') %}
+                    {% endif %}
+{{ network_cidr }};{{ address }};;{{ hydrahost }};{{ operatingsystem }};{{  operatingsystemrelease }};{{ citype }};{{ location }};{{ usage }};;;;;;;;{{ interface }};;{{ ciconsumer }};{{ ciprovider }};;;{{ parentci }};;;;;;;;{{ consumertenant }};;{{ providertenant }}; 
+                {% endfor %}
+        {% endif %}
+        {% if "bindings6" in val %}
+                {% for b in val["bindings6"] %}
+                    {% if not b["address"].startswith("fe80") %}
+                        {% set address = b["address"] %}
+                        {% set netmask = b["netmask"] %}
+                        {% set network = b["network"] %}
+                        {% set network_cidr = (network + "/" + netmask)|ipaddr('net') %}
+{{ network_cidr }};{{ address }};;{{ hydrahost }};{{ operatingsystem }};{{  operatingsystemrelease }};{{ citype }};{{ location }};{{ usage }};;;;;;;;{{ interface }};;{{ ciconsumer }};{{ ciprovider }};;;{{ parentci }};;;;;;;;{{ consumertenant }};;{{ providertenant }};
+                    {% endif %}
+                {% endfor %}
+        {% endif %}
+    {% endfor %}{# end of loop over network interfaces #}
+{% endfor %}{# end of loop over ansible_play_hosts #}

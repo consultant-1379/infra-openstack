@@ -1,0 +1,21 @@
+---
+# tasks file for get_files
+   - name: Clean controller storepath Directory if exist
+     file:
+       path: "{{ store_path }}"
+       state: absent
+     connection: local
+     run_once: yes
+     when: inventory_hostname == ansible_play_hosts[0]
+     tags:
+       - clean_directory
+
+   - name: Creates controller storepath directory
+     file:
+       path: "{{ store_path }}"
+       state: directory
+       mode: 0777
+     connection: local
+     run_once: yes
+     tags:
+       - create_directory

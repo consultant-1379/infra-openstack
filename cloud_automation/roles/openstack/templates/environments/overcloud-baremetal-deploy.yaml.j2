@@ -1,0 +1,187 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+{# create variables for VIP offsets #}
+{% set num_internal_api_vips = 2 %}
+{% set num_storage_vips = 1 %}
+{% set num_storage_mgmt_vips = 1 %}
+{% set cloud = cloudname.split('.')|first %}
+- name: Controller
+  count: {{ controller_count }}
+  hostname_format: {{ cloud }}-controller-%index%
+  ansible_playbooks:
+    - playbook: /usr/share/ansible/tripleo-playbooks/cli-overcloud-node-network-config.yaml
+      extra_vars:
+        {% if ovs_bond_option == 'active-active' %}
+        bond_interface_ovs_options: "bond_mode=balance-slb lacp=active other-config:lacp-fallback-ab=true other_config:bond-detect-mode=miimon other_config:bond-miimon-interval=100"
+        {% else %}
+        bond_interface_ovs_options: "bond_mode=balance-slb"
+        {% endif %}
+        
+        {# bond_storage_interface_options: mode=active-backup miimon=100 #}
+        {# Bonding options for storage networks (only active/backup works in a virtual environment) #}
+        {% if two_tier_mlag == True %}
+        bond_storage_interface_options: 'mode=4 miimon=100 xmit_hash_policy=layer3+4'
+        {% else %}
+        bond_storage_interface_options: 'mode=active-backup miimon=100'
+        {% endif %}
+        director_ctlplane_ip: '{{ director_ctlplane_ip }}'
+    - playbook: /usr/share/ansible/tripleo-playbooks/cli-overcloud-node-growvols.yaml
+      extra_vars:
+        role_growvols_args:
+          default:
+            /=8GB
+            /tmp=1GB
+            /var/log=10GB
+            /var/log/audit=2GB
+            /home=1GB
+            /var=100%
+          Controller:
+            /=8GB
+            /tmp=50GB
+            /var/log=50GB
+            /var/log/audit=2GB
+            /home=20GB
+            /var=90%
+
+  defaults:
+    network_config:
+      template: /home/stack/{{ cloud }}/overcloud/nic-configs/wallaby-controller-flexos.j2
+      default_route_network:
+      - external
+    config_drive:
+      cloud_config:
+        password: $6$rounds=250000$WHNg2ZndldzFdrF.$077Ya5vThM1FmjkHcIlO4x2FaTNUxOcIBnDT6LBpxm.pIxg1jDjEjCYuovZqxmXVxm/Pksj4bbXrk/cRpf8LS0
+        timezone: Europe/Dublin
+        ntp:
+          servers:
+            {{ ntp_servers |to_yaml }}
+        manage_resolv_conf: true
+        resolv_conf:
+          nameservers:
+            {{ dns_servers |to_yaml }}
+          searchdomains:
+            - athtem.eei.ericsson.se
+            - ericsson.se
+  instances:
+  {# {% for i in range(0,controller_count) %} #}
+  {% for node in nodes %}
+    {# - hostname: {{ cloud }}-controller-{{ i }} #}
+      {# name: {{node.name}} #}
+      {# name: {{ cloud }}-controller-{{ i }} #}
+      {# name: {{ node.name }} #}
+  {# {% for node in nodes %} #}
+  {% if node.ilo_ip in ctrl_ilo_ips %}
+    - hostname: {{ cloud }}-controller-{{ loop.index0 }}
+      name: {{node.name}}
+      networks:
+        - network: ctlplane
+          vif: true
+        - network: external
+          subnet: external_subnet
+          {# fixed_ip: {{ controller_external_ips[i] }} #}
+          fixed_ip: {{ controller_external_ips[loop.index0] }}
+        - network: internal_api
+          subnet: internal_api_subnet
+          {# fixed_ip: {{ internal_api_pool_start | ipmath(num_internal_api_vips + i) }} #}
+          fixed_ip: {{ internal_api_pool_start | ipmath(num_internal_api_vips + loop.index0) }}
+        - network: storage
+          subnet: storage_subnet
+          {# fixed_ip: {{ storage_pool_start | ipmath(num_storage_vips + i) }} #}
+          fixed_ip: {{ storage_pool_start | ipmath(num_storage_vips + loop.index0) }}
+        - network: storage_mgmt
+          subnet: storage_mgmt_subnet
+          fixed_ip: {{ storage_mgmt_pool_start | ipmath(num_storage_mgmt_vips + loop.index0) }}
+          {# fixed_ip: {{ storage_mgmt_pool_start | ipmath(num_storage_mgmt_vips + i) }} #}
+        - network: storage_nfs
+          subnet: storage_nfs_subnet
+          {# fixed_ip: {{ storage_nfs_pool_start | ipmath(i) }} #}
+          fixed_ip: {{ storage_nfs_pool_start | ipmath(loop.index0) }}
+        - network: tenant
+          subnet: tenant_subnet
+          {# fixed_ip: {{ tenant_pool_start | ipmath(i)}} #}
+          fixed_ip: {{ tenant_pool_start | ipmath(loop.index0)}}
+  {# {% endfor %} #}
+  {% endif %}
+  {% endfor %}
+- name: Compute
+  count: {{ compute_count }}
+  hostname_format: {{ cloud }}-compute-%index%
+  ansible_playbooks:
+    - playbook: /usr/share/ansible/tripleo-playbooks/cli-overcloud-node-network-config.yaml
+      extra_vars:
+        {% if ovs_bond_option == 'active-active' %}
+        bond_interface_ovs_options: "bond_mode=balance-slb lacp=active other-config:lacp-fallback-ab=true other_config:bond-detect-mode=miimon other_config:bond-miimon-interval=100"
+        {% else %}
+        bond_interface_ovs_options: "bond_mode=balance-slb"
+        {% endif %}
+        
+        {# bond_storage_interface_options: mode=active-backup miimon=100 #}
+        {% if two_tier_mlag == True %}
+        bond_storage_interface_options: 'mode=4 miimon=100 xmit_hash_policy=layer3+4'
+        {% else %}
+        bond_storage_interface_options: 'mode=active-backup miimon=100'
+        {% endif %}
+        director_ctlplane_ip: '{{ director_ctlplane_ip }}'
+    - playbook: /usr/share/ansible/tripleo-playbooks/cli-overcloud-node-growvols.yaml
+      extra_vars:
+        role_growvols_args:
+          default:
+            /=8GB
+            /tmp=1GB
+            /var/log=10GB
+            /var/log/audit=2GB
+            /home=1GB
+            /var=100%
+          Compute:
+            /=8GB
+            /tmp=50GB
+            /var/log=50GB
+            /var/log/audit=2GB
+            /home=20GB
+            /var=90%
+  defaults:
+    network_config:
+      template: /home/stack/{{ cloud }}/overcloud/nic-configs/wallaby-compute-flexos.j2
+      default_route_network:
+      - ctlplane
+    config_drive:
+      cloud_config:
+        password: $6$rounds=250000$WHNg2ZndldzFdrF.$077Ya5vThM1FmjkHcIlO4x2FaTNUxOcIBnDT6LBpxm.pIxg1jDjEjCYuovZqxmXVxm/Pksj4bbXrk/cRpf8LS0
+        timezone: Europe/Dublin
+        ntp:
+          servers:
+            {{ ntp_servers |to_yaml }}
+        manage_resolv_conf: true
+        resolv_conf:
+          nameservers:
+            {{ dns_servers |to_yaml }}
+          searchdomains:
+            - athtem.eei.ericsson.se
+            - ericsson.se
+  instances:
+    {# {% for i in range(controller_count, controller_count + compute_count) %} #}
+    {% for node in nodes %}
+    {% if node.ilo_ip not in ctrl_ilo_ips %}
+    {# - hostname: {{ cloud }}-compute-std-{{ i - controller_count }} #}
+    - hostname: {{ cloud }}-compute-std-{{ loop.index0 - controller_count }}
+      {# name: {{ cloud }}-compute-std-{{ i - controller_count}} #}
+      name: {{node.name}}
+      networks:
+        - network: ctlplane
+          vif: true
+        - network: internal_api
+          subnet: internal_api_subnet
+          fixed_ip: {{ internal_api_pool_start | ipmath(num_internal_api_vips + loop.index0) }}
+        - network: storage
+          subnet: storage_subnet
+          fixed_ip: {{ storage_pool_start | ipmath(num_storage_vips + loop.index0) }}
+        - network: storage_mgmt
+          subnet: storage_mgmt_subnet
+          fixed_ip: {{ storage_mgmt_pool_start | ipmath(num_storage_mgmt_vips + loop.index0) }}
+        - network: storage_nfs
+          subnet: storage_nfs_subnet
+          fixed_ip: {{ storage_nfs_pool_start | ipmath(loop.index0) }}
+        - network: tenant
+          subnet: tenant_subnet
+          fixed_ip: {{ tenant_pool_start | ipmath(loop.index0)}}
+    {% endif %}
+    {% endfor -%}

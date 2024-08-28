@@ -1,0 +1,1 @@
+director ansible_host=10.210.212.204 ansible_user=stack ansible_ssh_common_args=" -o StrictHostKeyChecking=no "

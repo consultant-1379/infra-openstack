@@ -1,0 +1,74 @@
+---
+- hosts: localhost
+  ignore_unreachable: true
+  vars:
+    sslhost:
+      - server: cloud4a.athtem.eei.ericsson.se
+      - server: cloud4b.athtem.eei.ericsson.se
+      - server: cloud6a.athtem.eei.ericsson.se
+      - server: cloud6b.athtem.eei.ericsson.se
+      - server: cloud7b.athtem.eei.ericsson.se
+      - server: cloud10a.athtem.eei.ericsson.se
+      - server: cloud11a.athtem.eei.ericsson.se
+      - server: cloud12a.athtem.eei.ericsson.se
+      - server: cloud13a.athtem.eei.ericsson.se
+      - server: cloud14a.athtem.eei.ericsson.se
+      - server: cloud15a.athtem.eei.ericsson.se
+      - server: cloud16a.athtem.eei.ericsson.se
+      - server: cloud16b.athtem.eei.ericsson.se
+      - server: cloud16c.athtem.eei.ericsson.se
+      - server: cloud17a.athtem.eei.ericsson.se
+      - server: cloud17b.athtem.eei.ericsson.se
+      - server: cloud17c.athtem.eei.ericsson.se
+      - server: clouddeva.athtem.eei.ericsson.se
+      - server: cloudenv1.athtem.eei.ericsson.se
+  tasks:
+    - name: Get a cert from multiple  https ports
+      community.crypto.get_certificate:
+        host: "{{ item.server|quote }}"
+        port: "{{ item.port | default('443', true) }}"
+      loop: "{{sslhost}}"
+      loop_control:
+        label: "{{ item.server }}"
+      register: sslcert
+      ignore_errors: true
+
+    - name: Create cloud list with SSL Cert expiry details
+      set_fact:
+        cloud_list: '{{ cloud_list| default([]) + [ { "cloud": host, "expire_date": expire_date, "expire_days": expire_days, "expire_time": expire_time, "cname": item.subject.CN, "port": port, "cert_ca": cert_ca } ] }}'
+      loop: "{{ sslcert.results }}"
+      loop_control:
+        label: "{{ item.item.server }}"
+      vars:
+        expire_days: "{{ (( item.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ')) ).days }}"
+        expire_date: "{{ '%d/%m/%Y' | strftime((item.not_after |to_datetime('%Y%m%d%H%M%SZ')).timestamp()) }}"
+        expire_time: "{{ '%H:%M' | strftime((item.not_after |to_datetime('%Y%m%d%H%M%SZ')).timestamp()) }}"
+        host: "{{   item.item.server.split('.') | first }}"
+        port: "{{ item.invocation.module_args.port }}"
+        cert_ca: "{{ item.issuer['CN'] }}"
+      when:
+        - not item.failed
+    - name: Send email if SSL Cert. expires on a server  within the next 21 days
+      mail:
+        host: ieatansible4b.athtem.eei.ericsson.se
+        port: 25
+        from: ssl-expiry-check-no-reply@ericsson.com
+        to: PDLDEOPENS@pdl.internal.ericsson.com
+        subject: SSL Cert expiry on   {{ item.cloud }}   in  {{ item.expire_days }}  days on   {{ item.expire_date}}
+        body: "{{ lookup('template', 'emailbody.html.j2') }}"
+        subtype: html
+      delegate_to: localhost
+      loop: "{{ cloud_list }}"
+      loop_control:
+        label: "{{ item.cloud }}"
+      when:
+        - item.expire_days | int  <= 21
+      ignore_errors: true
+    - name: Show many days until cert expires on all SSL hosts
+      debug:
+        msg: "SSL Cert for {{ item.cloud }} expires in {{ item.expire_days }} days on {{ item.expire_date }}.    CA = {{ item.cert_ca }}"
+      delegate_to: localhost
+      loop: "{{ cloud_list}}"
+      loop_control:
+        label: "{{ item.cloud }}"
+      ignore_errors: true

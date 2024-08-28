@@ -1,0 +1,26 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+networks:
+{% for network in networks %}
+{% set project_id = network["project_id"] if "project_id" in network else network["tenant_id"] %}
+{% set project = projects.openstack_projects | selectattr("id","equalto",project_id)| first %}
+  - name: {{ network.name }}
+    vlan: {{ network["provider:segmentation_id"] }}
+    external: {{ network["router:external"] }}
+    project: {{ project.name }}
+    shared: {{ network["shared"] }}
+{% endfor %}
+subnets:
+{% for subnet in subnets %}
+  - name: {{ subnet.name }}
+    network: {{ networks | selectattr("id","eq",subnet.network_id)| map(attribute="name") |first }}
+    cidr: {{ subnet.cidr }}
+    dns_nameservers: 
+      {% for ns in subnet.dns_nameservers %}
+      - {{ ns }}
+      {% endfor %}
+    gateway_ip: {{ subnet.gateway_ip }}
+    start: {{ subnet.allocation_pools[0]["start"] }}
+    end: {{ subnet.allocation_pools[0]["end"] }}
+    enable_dhcp: {{ subnet.enable_dhcp }}
+    ip_version: {{ subnet.ip_version }}
+{% endfor %}

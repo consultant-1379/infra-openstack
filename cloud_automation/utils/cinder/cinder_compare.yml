@@ -1,0 +1,128 @@
+---
+- name: Compare OpenStack volumes with VNX/PowerFlex LUNs
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - cinder_clouds.yml
+  vars:
+    cloud: '{{ tower_inventory_name }}'
+  tasks:
+    - name: Confirm valid cloud selected # noqa fqcn
+      assert:
+        that: cloud is defined and cloud in  cloud_storage_arrays.keys()
+        success_msg: '{{ cloud }} is a valid cloud inventory'
+        fail_msg: '{{ cloud }} is not a valid cloud inventory'
+
+    - name: Set storage variables
+      ansible.builtin.set_fact:
+        storage_array: '{{ cloud_storage_arrays[cloud] }}'
+        storage_type: '{{ cloud_storage_arrays[cloud].type }}'
+        storage_host: '{{ cloud_storage_arrays[cloud].ip }}'
+        storage_user: '{{ cloud_storage_arrays[cloud].user }}'
+        storage_password: '{{ cloud_storage_arrays[cloud].password }}'
+        awx_host: "{{ lookup('env','AWX_HOST') }}"
+      no_log: false
+    - debug:
+        msg: 'Running on {{ awx_host }}'
+
+    - name: 'Get OpenStack volumes in {{ cloud }}'
+      openstack.cloud.volume_info:
+        all_projects: true
+      register: openstack_volumes
+
+    - name: Get volume ids from OpenStack volumes
+      set_fact:
+        openstack_vol_ids: '{{ openstack_volumes.volumes | map(attribute="id") |list }}'
+
+    - name: Cinder Comparison for Dell VNX
+      block:
+        - name: Write OpenStack volume ids to /tmp/openstack_vol_ids
+          copy:
+            content: '{{ openstack_vol_ids | join(" ") }}'
+            dest: /tmp/openstack_vol_ids
+
+        - name: Compare VNX LUNs with OpenStack Volumes # noqa command-shell no-changed-when fqcn
+          shell: "python3 cinder_compare.py --ip {{ storage_array.ip }} --user {{ storage_array.user }} {{ action }} 2>&1"
+          vars:
+            action: '{{ "--delete" if delete is defined and delete == "yes" else "" }}'
+          environment:
+            vnx_password: '{{ cloud_storage_arrays[cloud]["password"] }}'
+          register: comparison_result
+          ignore_errors: true
+        - name: Print output from the cinder comparison script
+          debug:
+            var: comparison_result.stdout_lines
+        - name: Set content for the teams notification
+          set_fact:
+            cinder_compare_output: "{{result_msg}}<br /><br />{{output}}<br /><br />See <a href=\"{{ awx_host }}/#/jobs/playbook/{{ awx_job_id }}\">here</a>"
+          vars:
+            output: "{{comparison_result.stdout_lines|select('match','.*LUNs which can be deleted.*')|list|first|default('There are no LUNs to be deleted')}}"
+            result_msg: "{{ 'Script failed with exit code ' + comparison_result.rc|string if comparison_result.rc != 0 else 'Script finished successfully' }}"
+
+      when: storage_type == 'vnx'
+      tags:
+        - vnx
+
+    - name: Cinder Comparison for Dell PowerFlex
+      block:
+        - name: Get OpenStack volume ids from database (includes deleted volumes)
+          shell: 'podman exec $(sudo podman ps -f name=galera -q) mysql -D cinder -e "select id from volumes" -NB'
+          register: cinder_query_result
+          become: true
+          delegate_to: '{{ groups["Controller"] | first }}'
+
+        - name: Compare PowerFlex volumes with OpenStack Volumes
+          block:
+            - name: Get volumes from powerflex
+              dellemc.powerflex.info:
+                gather_subset:
+                  - vol
+                hostname: '{{ storage_host }}'
+                username: '{{ storage_user }}'
+                password: '{{ storage_password }}'
+                validate_certs: false
+              register: powerflex_info
+
+            - name: "Filter out PowerFlex volumes which don't belong to {{ cloud }}"
+              set_fact:
+                powerflex_volumes: '{{ powerflex_info.Volumes
+                                     | powerflex_to_openstack
+                                     | selectattr("openstack_id","in",cinder_query_result.stdout_lines)
+                                     | list }}'
+
+            - name: Print the number of volumes in PowerFlex and OpenStack
+              debug:
+                msg: 'There are {{ powerflex_volumes | length }} PowerFlex volumes and {{ openstack_volumes.volumes | length }} volumes in OpenStack'
+
+            - name: Get PowerFlex volumes which do not exist in OpenStack
+              set_fact:
+                extra_powerflex_openstack_ids: '{{ powerflex_openstack_ids | difference(openstack_vol_ids) }}'
+              vars:
+                openstack_vol_ids: '{{ openstack_volumes.volumes | map(attribute="id") |list }}'
+                powerflex_openstack_ids: '{{ powerflex_volumes | map(attribute="openstack_id") |list }}'
+
+            - name: Save the result of the cinder comparison
+              set_fact:
+                cinder_compare_output: '{{ "The following volumes are in PowerFlex but not in OpenStack:" + extra_powerflex_vols if extra_powerflex_vols else 
+                                            "There are no volumes in PowerFlex which are not in " + cloud }}<br />See <a href=\"{{ awx_host }}/#/jobs/playbook/{{ awx_job_id }}\">here</a> for more details.'                                 
+              vars:
+                extra_powerflex_vols: '{{ powerflex_volumes
+                                          | selectattr("openstack_id","in",extra_powerflex_openstack_ids)
+                                          | map(attribute="name") | list }}'
+      tags:
+        - powerflex
+      when: storage_type == "powerflex"
+
+    - name: Print the result of the cinder comparison
+      debug:
+        msg: '{{ cinder_compare_output }}'
+
+    - name: Post result to teams
+      mail:
+        subject: '{{ cloud }} - Cinder Comparison results'
+        sender: infra-awx@ericsson.com (Infra AWX)
+        body: '{{ cinder_compare_output }}'
+        subtype: html
+        charset: utf-8
+        to: '764f6be1.ericsson.onmicrosoft.com@emea.teams.ms (DE Openstack Infra - General channel)'
+        host: ieatansible4b

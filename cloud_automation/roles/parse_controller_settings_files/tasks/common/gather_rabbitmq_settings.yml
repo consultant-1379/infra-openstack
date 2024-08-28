@@ -1,0 +1,31 @@
+---
+  - name: Get rabbitmq settings
+    shell: pcs status |tr -d '*' |grep '^[[:blank:]]*rabbitmq-bundle'|awk '{print $1, $4}'| sed 's/ [^-]*-/ /'
+    register: rabbitmq_settings
+    ignore_errors: true
+
+  - name: Validating rabbitmq settings
+    set_fact:
+      expected_results: "{{(rabbitmq_check + controller_check) | difference(rabbitmq_settings.stdout.split()|list)}}"
+  
+  - name: Validating rabbitmq settings
+    set_fact:
+      actual_results: "{{(rabbitmq_settings.stdout.split()|list) | difference(rabbitmq_check + controller_check)}}"
+
+  - name: Combine rabbitmq results to a dictionary
+    set_fact:
+      rabbitmq_settings_results: "{{ rabbitmq_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: rabbitmq
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - set_fact:
+      actual_results: []
+      expected_results: []

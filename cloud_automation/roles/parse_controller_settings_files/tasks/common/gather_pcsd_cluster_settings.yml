@@ -1,0 +1,40 @@
+---
+  - name: Get PCSD settings
+    shell: pcs status xml | xmllint --xpath "/crm_mon/nodes/node[@type='member']" -
+    register: pcs_settings
+    ignore_errors: true
+
+  - name: Get pcs cluster status
+    xml:
+      xmlstring: '<nodes>{{pcs_settings.stdout}}</nodes>'
+      xpath: "/nodes/node"
+      content: attribute
+    register: xml_output
+    delegate_to: localhost
+    become: no
+    ignore_errors: true
+
+  - name: Map xml results  
+    set_fact:
+      temp: "{{xml_output.matches | map(attribute='node')| list}}"
+  
+  - name: Filter xml results
+    set_fact:
+      pcsd_cluster_results: "{{pcsd_cluster_results + [item['name']]}}"
+    loop: "{{temp}}"
+    when: item['online'] != 'true'
+
+  - name: Combine pcsd cluster reults to a dictionary
+    set_fact:
+      pcsd_cluster_setting_results: "{{ pcsd_cluster_setting_results | default({}) | combine({inventory_hostname:{'expected':'','actual': pcsd_cluster_results }}) }}"
+    when: pcsd_cluster_results | length > 0
+
+  - include: common/save_results.yaml
+    vars:
+      expected: []
+      actual: "{{pcsd_cluster_results}}"
+      heading: pcsd_cluster
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: pcsd_cluster_results | length > 0

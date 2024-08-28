@@ -1,0 +1,42 @@
+---
+- name: Restart horizon
+  shell: podman restart horizon
+
+- name: Restart memcached on all controller nodes
+  shell: podman restart memcached
+
+- name: Pause for 45 seconds while waiting on memcached docker container to restart
+  pause:
+    seconds: 45
+
+- name: Restart neutron containers
+  shell: podman restart neutron_ovs_agent neutron_l3_agent neutron_metadata_agent neutron_dhcp neutron_api
+
+- name: Restart Cinder Volume Service on one controller node
+  shell: pcs resource restart openstack-cinder-volume
+  run_once: true
+
+- name: Pause for 90 seconds while restarting cinder volume service
+  pause:
+    seconds: 90
+
+- name: Restart cinder containers
+  shell: podman restart "{{service}}"
+  loop: "{{cinder_services}}"
+  loop_control:
+    loop_var: service
+    pause: 45
+
+- name: Pause for 45 seconds
+  pause:
+    seconds: 45
+
+- block:
+    - name: restart nova containers
+      shell: "podman restart {{nova_containers| join(' ')}}"
+    
+    - name: 'Sleeping {{ pause_delay }} seconds to allow the containers to start'
+      pause:
+        seconds: '{{ pause_delay }}'
+  when: nova_conf_updated.changed
+

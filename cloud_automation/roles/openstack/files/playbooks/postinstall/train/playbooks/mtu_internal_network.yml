@@ -1,0 +1,7 @@
+---
+- name: Change mtu size for internal networks
+  ini_file:
+    path: /var/lib/config-data/puppet-generated/neutron/etc/neutron/plugins/ml2/ml2_conf.ini
+    section: ml2
+    option: path_mtu
+    value: 1550

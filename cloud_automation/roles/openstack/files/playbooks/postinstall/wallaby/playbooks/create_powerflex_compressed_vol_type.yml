@@ -1,0 +1,32 @@
+---
+  # - name: Get san type
+  #   command: crudini --get /var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf DEFAULT enabled_backends
+  #   register: santype
+  #   when: inventory_hostname == controller_host
+
+
+  # - name: Check if powerflex_compressed volume type exist
+  #   shell: source /home/stack/overcloudrc; openstack volume type show powerflex_compressed -f value -c properties
+  #   register: results
+  #   delegate_to: localhost
+  #   become: no
+  #   ignore_errors: True
+  #   when: inventory_hostname == controller_host and santype.stdout == 'flexos'
+
+
+  - name: Create powerflex volume type
+    #shell: source ~/overcloudrc; openstack volume type create powerflex_compressed; openstack volume type set --property provisioning:type=compressed powerflex_compressed;
+    shell: source ~/overcloudrc; openstack volume type create powerflex_compressed; openstack volume type set --property provisioning:type=compressed powerflex_compressed;
+    delegate_to: localhost
+    become: no
+    ignore_errors: True
+    when: inventory_hostname == controller_host
+
+  # - name: Set powerflex_compressed as default volume type
+  #   ini_file:
+  #     path: /var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf
+  #     section: DEFAULT
+  #     option: default_volume_type
+  #     value: powerflex_compressed
+  #   when: results is defined and "'No volumetype with a name or ID' in results.stderr"
+

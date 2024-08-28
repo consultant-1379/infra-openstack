@@ -1,0 +1,14 @@
+SSL/TLS certificates created from E/// Certificate Services website https://ecs.internal.ericsson.com/CertificateServices/Index
+####################################################################################################################################
+
+Certificates created with the 'sha256 with RSAEncryption SHA1 Root' option use these files as the Intermediate and Root CA
+
+DigiCertSHA2SecureServerCA.cer
+DigiCert_Global_Root_CA.cer
+
+
+Certificates created with the 'sha256 with RSAEncryption SHA256 Root' option use these files as the Intermediate and Root CA. Note the root is actually SHA2 - there is a typo in the option name
+on the website.
+
+DigiCert_SHA256_IntermediateCA.cer
+DigiCert_SHA2_Root.cer

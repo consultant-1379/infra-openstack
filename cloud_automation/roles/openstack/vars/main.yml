@@ -1,0 +1,27 @@
+---
+ovs_global_physnet_mtu: 1558
+
+memcached_servers: "{{node_prefix}}-controller-0.internalapi:11211,{{node_prefix}}-controller-1.internalapi:11211,{{node_prefix}}-controller-2.internalapi:11211"
+memcached_servers_ipv6: "inet6:[{{node_prefix}}-controller-0.internalapi]:11211,inet6:[{{node_prefix}}-controller-1.internalapi]:11211,inet6:[{{node_prefix}}-controller-2.internalapi]:11211"
+
+stack_home: /home/stack
+cloud_directory: "{{stack_home}}/{{cloudname|regex_replace('\\..*')}}"
+openstack_overcloud_directory: "{{cloud_directory}}/overcloud"
+openstack_undercloud_directory: "{{cloud_directory}}/undercloud"
+openstack_scripts_directory: "{{cloud_directory}}/scripts"
+openstack_templates_directory: "{{openstack_overcloud_directory}}/templates"
+openstack_usr_templates_directory: /usr/share/openstack-tripleo-heat-templates
+openstack_env_directory: "{{openstack_overcloud_directory}}/environments"
+openstack_playbooks_directory: "{{cloud_directory}}/playbooks"
+openstack_infra_scripts_directory: "{{stack_home}}/infra_scripts"
+ericsson_config_dirs:
+  - extraconfig
+  - firstboot
+  - nic-configs
+
+extra_templates:
+  - ips-from-pool-all.yaml.j2
+  - local_registry_images.yaml.j2
+  - network_data.yaml.j2
+  - nodes-info.yaml.j2
+  - overcloud_images.yaml.j2

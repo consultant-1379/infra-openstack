@@ -1,0 +1,13 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+
+#!/bin/bash
+source ~/stackrc
+
+echo "$(date -Iseconds) Provisioning the networks"
+openstack overcloud network provision --output {{ openstack_env_directory }}/overcloud-networks-deployed.yaml {{ openstack_overcloud_directory }}/network_data.yaml
+
+echo "$(date -Iseconds) Provisioning the vip's"
+openstack overcloud network vip provision --stack overcloud --output {{ openstack_env_directory }}/overcloud-vip-deployed.yaml {{ openstack_env_directory }}/overcloud-vip-data.yaml
+
+echo "$(date -Iseconds) Provisioning the nodes"
+openstack overcloud node provision --network-config --output {{ openstack_env_directory }}/overcloud-baremetal-deployed.yaml {{ openstack_env_directory }}/overcloud-baremetal-deploy.yaml

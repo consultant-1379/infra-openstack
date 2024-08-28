@@ -1,0 +1,9 @@
+---
+  - name: Gather network configurations.
+    network:
+      user: "{{switch_user}}"
+      passw: "{{switch_password}}"
+      input: "{{'/../redhat/'+cloud+'/'+cloud + '_network_conf.yaml'}}"
+      output: "{{output_file}}"
+    register: networking_results
+    ignore_errors: yes

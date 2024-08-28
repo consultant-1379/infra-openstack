@@ -1,0 +1,44 @@
+---
+  - name: Check chronyd service is running
+    systemd:
+      name: chronyd
+      state: started
+      enabled: yes
+    check_mode: yes
+    register: started_service_result
+
+  - name: Check firewalld service is stopped
+    systemd:
+      name: firewalld
+      state: stopped
+      enabled: no
+    check_mode: yes
+    register: stopped_service_result
+
+  - name: Add chrony results to a result list
+    set_fact:
+      services_results: "{{services_results +  [item.name + item.state]}}"
+    loop:
+      - "{{started_service_result}}"
+      - "{{stopped_service_result}}"
+
+  - name: Validating services settings
+    set_fact:
+      expected_results: "{{ services_check_train | difference(services_results) }}"
+  - name: Validating services settings
+    set_fact:
+      actual_results: "{{ services_results | difference(services_check_train) }}"
+
+  - name: Combine linux services results to a dictionary (train)
+    set_fact:
+      linux_services_results: "{{ linux_services_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - include: save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

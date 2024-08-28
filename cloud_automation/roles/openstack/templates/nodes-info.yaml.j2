@@ -1,0 +1,36 @@
+parameter_defaults:
+  # The scheduler hint map the physical servers to a specific role
+  # The match is done between instackenv.json's capabilities:node and ControllerSchedulerHints parameter
+  #   e.g. controller2 in the instacvkenv has capabilities as "node:controller-node-2,boot_option:local"
+  #   the same name is present in ControllerHostnameFormat
+  #   the %index% starts from 0 until ControllerCount. So index is between 0, 1 and 2
+
+  ControllerSchedulerHints:
+    'capabilities:node': 'controller-node-%index%'
+  # ControllerCount defiens the total number of nodes in the role
+  ControllerCount: {{controller_count}}
+  # Hostname format template
+  # - cloud name (with domain removed)
+  # - compute-std is a fixed name
+  # - %index% is a incremental number starting from 0 until the last compute node
+  ControllerHostnameFormat: '{{node_prefix}}-controller-%index%'
+
+  ComputeSchedulerHints:
+    'capabilities:node': 'compute-node-std-%index%'
+  ComputeCount: {{compute_count}}
+  ComputeHostnameFormat: '{{node_prefix}}-compute-std-%index%'
+
+  #ComputeHASchedulerHints:
+  #  'capabilities:node': 'compute-node-std-ha-%index%'
+  #ComputeHACount: 0
+  #ComputeHAHostnameFormat: '{{node_prefix}}-compute-std-ha-%index%'
+
+  #ComputeHPSchedulerHints:
+  #  'capabilities:node': 'compute-node-hp-%index%'
+  #ComputeHPCount: 0
+  #ComputeHPHostnameFormat: '{{node_prefix}}-compute-hp-%index%'
+
+  #ComputeHPHASchedulerHints:
+  #  'capabilities:node': 'compute-node-hp-ha-%index%'
+  #ComputeHPHACount: 0
+  #ComputeHPHAHostnameFormat: '{{node_prefix}}-compute-hp-ha-%index%'

@@ -1,0 +1,32 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+
+#!/bin/bash
+# source common functions
+. common.bsh
+
+# Change directory to where this script is located
+# Given the above assumption, all path are local ones
+cd $(dirname $(readlink -f $0))
+
+source ~/stackrc
+info "Importing nodes from ../undercloud/instackenv.json"
+openstack overcloud node import ../undercloud/instackenv.json || abort "Error importing nodes from instackenv.json."
+nodes_to_power_off=($(openstack baremetal node list|awk '/power on/ {print $2}'))
+if [[ -n "${nodes_to_power_off}" ]]; then
+    info "There are {% raw %}${#nodes_to_power_off[@]}{% endraw %} to be powered off"
+    for node in ${nodes_to_power_off[@]}
+    do
+        echo "Powering off $node"
+        openstack baremetal node power off $node || warn "Error powering off $node."
+        info "Successfully powered off $node"
+    done
+else
+    info "There are no nodes to be powered off."
+fi
+openstack overcloud node introspect --all-manageable --provide
+
+{% if os_release == "train" %}
+openstack overcloud node configure $(openstack baremetal node list -c UUID -f value) || abort "Error configuring baremetal nodes."
+{% endif %}
+
+exit $?

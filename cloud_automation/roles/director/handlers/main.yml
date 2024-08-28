@@ -1,0 +1,32 @@
+- name: Restart httpd
+  systemd:
+    name: httpd
+    enabled: yes
+    state: restarted
+  become: yes
+  listen: restart_httpd
+
+- name: Restart Nova (systemd)
+  systemd:
+    name: '{{nova_service}}'
+    enabled: yes
+    state: restarted
+  loop:
+    - openstack-nova-api.service      
+    - openstack-nova-compute.service  
+    - openstack-nova-conductor.service
+    - openstack-nova-scheduler.service
+  loop_control:
+    loop_var: nova_service
+    label: '{{nova_service}}'
+  become: yes
+  listen: restart_nova
+  when: ansible_distribution_major_version == 7
+
+- name: Restart nova containers
+  shell: podman restart nova_compute nova_api_cron nova_api nova_scheduler nova_conductor
+  args:
+    warn: no
+  become: yes
+  listen: restart_nova
+  when: ansible_distribution_major_version == 8

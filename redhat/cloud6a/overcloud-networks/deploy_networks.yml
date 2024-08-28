@@ -1,0 +1,121 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    rules:
+      - direction: ingress
+        protocol: icmp
+        port_min: -1
+        port_max: -1
+      - direction: egress
+        protocol: icmp
+        port_min: -1
+        port_max: -1
+
+  tasks:
+    - name: Deploy OpenStack provider networks
+      os_network:
+        name: "{{network.name}}"
+        provider_network_type: vlan
+        provider_physical_network: datacentre
+        provider_segmentation_id: "{{network.vlan}}"
+        mtu: "{{network.mtu|default(1500)}}"
+        shared: '{{network.shared | default("yes")}}'
+        project: '{{network.project | default("admin")}}'
+        admin_state_up: true
+        state: present
+        external: '{{network.external}}'
+      loop: "{{networks}}"
+      loop_control:
+        loop_var: network
+        label: "{{network.name}}" 
+    - name: Deploy OpenStack provider subnets
+      os_subnet:
+        name: '{{subnet.name}}'
+        network_name: '{{subnet.network}}'
+        cidr: '{{subnet.cidr}}'
+        allocation_pool_start: '{{subnet.start}}'
+        allocation_pool_end: '{{subnet.end}}'
+        ip_version: '{{subnet.ip_version|default(4)}}'
+        gateway_ip: '{{subnet.gateway_ip}}'
+        enable_dhcp: '{{subnet.enable_dhcp}}'
+        state: present
+      loop: "{{subnets}}"
+      loop_control:
+        loop_var: subnet
+        label: "{{subnet.name}}"
+    - name: Create test flavor
+      os_nova_flavor:
+        name: test_flavor
+        vcpus: 2
+        ram: 2048
+        disk: 12
+        state: present
+    - name: Create test security group
+      os_security_group:
+        name: test_sg
+        state: present
+    - name: Add security group rules
+      os_security_group_rule:
+        security_group: test_sg
+        direction: '{{rule.direction}}'
+        protocol: '{{rule.protocol}}'
+        port_range_min: '{{rule.port_min}}'
+        port_range_max: '{{rule.port_max}}'
+        remote_ip_prefix: 0.0.0.0/0
+      loop: '{{rules}}'
+      loop_control:
+        loop_var: rule
+    - set_fact:
+        mynets: '{{networks | map(attribute="name")| reject("contains","Float")|list}}'
+    - name: Check if cirros image is available
+      os_image_info:
+        image: cirros
+      register: cirros_result
+      ignore_errors: True
+#    - name: Download cirros image
+#      get_url:
+#        url: http://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img
+#        dest: ./cirros-0.4.0-x86_64-disk.img
+#      when: not cirros_result.changed  
+    - name: Ensure cirros images is present
+      os_image:
+        name: cirros
+        container_format: bare
+        disk_format: qcow2
+        state: present
+        filename: cirros-0.4.0-x86_64-disk.img
+      when: not cirros_result.changed  
+
+    - name: Create VMs
+      os_server:
+        state: present
+        name: 'testvm_{{net}}'
+        image: cirros
+        flavor: test_flavor
+        network: '{{net}}'
+        security_groups:
+          - test_sg
+      loop: '{{mynets}}'
+      loop_control:
+        loop_var: net
+        label: 'test_{{net}}'
+    - name: Get server info
+      os_server_info:
+      register: serverinfo
+    - name: ping VMs
+      command: 'ping -c1 {{item}}'
+      loop:  "{{serverinfo.openstack_servers|map(attribute='public_v4')|list}}" 
+    - name: Delete VMs
+      os_server:
+        state: absent
+        name: 'testvm_{{net}}'
+      loop: '{{mynets}}'
+      loop_control:
+        loop_var: net
+        label: 'test_{{net}}'
+#    - name: Delete security group
+#      os_security_group:
+#        name: test_sg
+#        state: absent

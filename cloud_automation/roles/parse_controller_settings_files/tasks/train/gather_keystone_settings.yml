@@ -1,0 +1,86 @@
+---
+  - name: gathering keystone.conf settings
+    shell: grep -Ev '^$|^#' {{ keystone_settings.file }} | grep {{ item }}
+    loop: '{{ keystone_settings.setting }}'
+    register: gather_result
+    ignore_errors: true
+
+  - name: check keystone containers are running
+    shell:  podman inspect `podman ps|grep -i "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ keystone_containers_train }}"
+    register: gather_container_result
+    ignore_errors: yes
+
+  - name: Save keystone container results
+    set_fact:
+      keystone_results: "{{keystone_results + [item.stdout| regex_replace(' ','')]}}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Removing white spaces
+    set_fact:
+      results: "{{(keystone_check  + keystone_train)| regex_replace(' ','')}}"
+  
+  - name: Save keystone config results
+    set_fact:
+      temp_keystone: "{{(temp_keystone + [item.stdout.split('\n')])| regex_replace(' ','')}}"
+    loop: "{{gather_result.results}}"
+    when: "'stdout' in item"
+
+  - name: Combine all results
+    set_fact:
+      keystone_results: "{{keystone_results + (temp_keystone |flatten)}}"
+
+  - name: Remove special char (keystone_settings train)
+    set_fact:
+      keystone_results: "{{keystone_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Split memcache server results
+    set_fact:
+      keystone_results: "{{(keystone_results + item.split(','))|reject('search', item) | list}}"
+    loop: "{{keystone_results}}"
+    when: "'cloud' in item"
+ 
+  - name: Set keyston results var
+    set_fact:
+      keystone_results: "{{ (keystone_results + [item|regex_replace('^.*-(.*)-','\\1')]) |reject('search', item) | list}}"
+    loop: "{{keystone_results}}"
+    when: "'cloud' in item"
+
+  - name: Remove trailing chars (keystone_settings train)
+    set_fact:
+      keystone_results: "{{keystone_results | map('replace', ',' ,'') | list}}"
+
+  - name: Validating expected results
+    set_fact:
+      expected_results: "{{results| difference(keystone_results)}}"
+
+  - name: Validating actual results
+    set_fact:
+      actual_results: "{{keystone_results| difference(results)}}"
+
+  - name: Combine controller keystone results to a dictionary (train)
+    set_fact:
+      keystone_settings_results: "{{ keystone_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: keystone
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - block:
+    - name:  add section heading
+      shell: |
+         echo "
+         ****keystone caching section******" >> {{ settings_store_path }}{{ inventory_hostname }}-parsed-settings
+
+    - name: save error to file
+      shell: echo "Missing one or more caching settings" >> {{ settings_store_path }}{{ inventory_hostname }}-parsed-settings
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: temp_keystone[0] | length != num_of_caching

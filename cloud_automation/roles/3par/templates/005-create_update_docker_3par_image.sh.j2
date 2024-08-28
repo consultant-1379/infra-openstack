@@ -1,0 +1,29 @@
+#!/bin/bash
+# source common functions
+. common.bsh
+
+CONTAINER_VERSION=1-25
+RH_DOCKER_REGISTRY=registry.connect.redhat.com
+DOCKER_REGISTRY_IP={{ director_ctlplane_ip }}
+OVERCLOUD_IMAGES=../overcloud/overcloud_images.yaml
+
+info "Upload and update HPE 3PAR docker image"
+
+
+
+info "Logging in to ${RH_DOCKER_REGISTRY} using service account {{ registry_username }}"
+docker login -u '{{ registry_username }}' -p {{ registry_password }} ${RH_DOCKER_REGISTRY} || abort "There was a problem logging into ${RH_DOCKER_REGISTRY}"
+
+info "Downloading the hpe3parcinder/hpe3parcinder docker image."
+docker pull ${RH_DOCKER_REGISTRY}/hpe3parcinder/hpe3parcinder:${CONTAINER_VERSION} || abort "Error downloading the hpe3parcinder/hpe3parcinder docker image."
+
+info "Tagging ${RH_DOCKER_REGISTRY}/hpe3parcinder/hpe3parcinder:${CONTAINER_VERSION}"
+docker tag ${RH_DOCKER_REGISTRY}/hpe3parcinder/hpe3parcinder:${CONTAINER_VERSION} ${DOCKER_REGISTRY_IP}:8787/hpe3parcinder/hpe3parcinder:latest || abort "Error tagging the docker image."
+
+info "Pushing the hpe3parcinder/hpe3parcinder docker image to the local docker registry ${DOCKER_REGISTRY_IP}:8787"
+docker push ${DOCKER_REGISTRY_IP}:8787/hpe3parcinder/hpe3parcinder || abort "Error pushing docker image to the local registry."
+
+info "Updating overcloud_images.yaml to use the hpe3parcinder/hpe3parcinder:latest image for cinder."
+sed -e "s/rhosp13\/openstack-cinder-volume.*$/hpe3parcinder\/hpe3parcinder:latest/g" -i ${OVERCLOUD_IMAGES} || abort "Error updating ${OVERCLOUD_IMAGES}"
+
+exit 0

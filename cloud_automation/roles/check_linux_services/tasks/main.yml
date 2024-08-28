@@ -1,0 +1,24 @@
+---
+  - name: Creates directory
+    file:
+      path: "{{ item }}"
+      state: directory
+      mode: 0777
+    ignore_errors: yes
+    run_once: yes
+    connection: local
+    become: no
+    loop:
+      - "{{settings_store_path_controller}}"
+      - "{{settings_store_path_compute}}"
+    tags: [queens, check_linux_services_queens, train, check_linux_services_train]
+
+  - include: check_linux_services_queens.yml
+    when: os_release == 'queens'
+    tags: [queens, check_linux_services_queens]
+
+  - include: check_linux_services_train.yaml
+    when: os_release == 'train'
+    tags: [train, check_linux_services_train]
+
+

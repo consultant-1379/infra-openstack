@@ -1,0 +1,14 @@
+parameter_defaults:
+  # Mapping required for flexos as per https://github.com/dell/rhosp-vxflexos-deploy
+  NovaComputeOptVolumes:
+    - /opt/emc/scaleio/openstack:/opt/emc/scaleio/openstack
+  CinderVolumeOptVolumes:
+    - /opt/emc/scaleio/openstack:/opt/emc/scaleio/openstack
+  CinderBackupOptVolumes:
+    - /opt/emc/scaleio/openstack:/opt/emc/scaleio/openstack
+# Following required if cinder is to be backend for glance
+# Removed for re-deploy of cloud16a when switching from cinder to nfs for glance
+{% if glance_backend == 'cinder' %}
+  GlanceApiOptVolumes:
+    - /opt/emc/scaleio/openstack:/opt/emc/scaleio/openstack
+{% endif %}

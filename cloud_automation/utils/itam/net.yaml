@@ -1,0 +1,53 @@
+---
+- hosts: all
+  gather_facts: True
+  vars:
+   cloud: "{{ awx_inventory_name }}"
+  tasks:
+    - block:
+        - name: Get facter version
+          shell: |
+            facter --version
+          register: facter
+        - set_fact:
+            factervers: '{{ "facter24x" }}'
+          when: facter.stdout is not search("3.9.3")
+        - set_fact:
+            factervers: '{{ "facter393" }}'
+          when: facter.stdout is search("3.9.3")
+        - debug:
+            var: factervers
+        - name: Load JSON file
+          slurp:
+            src: "{{ ansible_env.HOME }}/instackenv.json"
+          register: instackenv
+        - set_fact:
+            instack: "{{ instackenv['content']| b64decode | from_json }}"
+        - set_fact:
+            hydra_hosts: '{{ hydra_hosts|default({}) | combine({osname: hydraname }) }}'
+          loop: '{{ instack.nodes }}'
+          loop_control:
+            loop_var: hydra
+            label: '{{ hydra.name }}'
+          vars:
+            osname:  '{{ cloud + ((hydra.capabilities.split(",")|first).replace("node:", "-")).replace("-node-", "-") }}'
+            hydraname: '{{ ((hydra.name.split("-")|first).split("ilo")|first).split(".")|first }}'
+        - debug:
+            var: hydra_hosts
+        - name: Cloud Name
+          debug:
+            var: cloud
+          run_once: True
+        - name: Initialize output file
+          file:
+            path: "/tmp/{{ cloud }}.csv"
+            state: absent
+        - name: Get IPv6 subnets
+          shell: '. ~/stackrc;openstack subnet list --ip-version 6 -f value -c Subnet'
+          register: v6subnets
+        - name: Get network info
+          template:
+            src: "{{ factervers }}_output.csv.j2" 
+            dest: "/tmp/{{ cloud }}.csv"
+      run_once: true
+      delegate_to: director

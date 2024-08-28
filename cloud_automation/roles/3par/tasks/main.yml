@@ -1,0 +1,16 @@
+- name: Copy list_3par_volumes.py to /home/stack
+  copy:
+    src: list_3par_volumes.py
+    dest: '/home/stack/list_3par_volumes.py'
+    mode: 0755
+- name: "Create 005-create_update_docker_3par.sh in {{openstack_scripts_directory}}"
+  template:
+    src: 005-create_update_docker_3par_image.sh.j2
+    dest: '{{ openstack_scripts_directory }}/005-create_update_docker_3par_image.sh'
+    mode: 0755
+
+- name: "Create 30-3par-storage-environment.yaml.j2 in {{openstack_env_directory}}"
+  template:
+    src: 30-3par-storage-environment.yaml.j2
+    dest: '{{openstack_env_directory}}/30-3par-storage-environment.yaml'
+    mode: 0644

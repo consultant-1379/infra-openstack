@@ -1,0 +1,17 @@
+---
+# vars file for check_linux_services
+settings_store_path_controller: /var/tmp/record_of_settings/parsed-controller-settings/
+settings_store_path_compute: /var/tmp/record_of_settings/parsed-compute-settings/
+
+# empty list to fill with nova results
+services_results: []
+
+# checks to compare with gathered nova settings and containers
+services_check_queens:
+  - ntpdstarted
+  - firewalldstopped
+  - ksmstopped
+  - ksmtunedstopped
+services_check_train:
+  - chronydstarted
+  - firewalldstopped

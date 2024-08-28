@@ -1,0 +1,72 @@
+---
+  - include: gather_internal_ips.yaml
+
+  - name: gathering heat.conf settings
+    shell: grep -Ev '^$|^#' {{ heat_settings.file }} | grep {{ item }}
+    loop: '{{ heat_settings.setting }}'
+    register: gather_result
+    ignore_errors: true
+
+  - name: check heat containers are running train
+    shell:  podman inspect `podman ps|grep -io "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ heat_containers }}"
+    register: gather_container_result
+    ignore_errors: yes
+
+  - name: Save gathered results
+    set_fact:
+      heat_results: "{{ heat_results + [item.stdout|regex_replace(' ','')]}}"
+    loop: "{{gather_result.results}}"
+    when: item.stdout is defined
+
+  - name: Add values to heat_results var
+    set_fact:
+      heat_results: "{{heat_results + [item.stdout|trim| regex_replace(' ','')]}}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Remove special char (heat_settings train)
+    set_fact:
+      heat_results: "{{heat_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Update memcache results
+    set_fact:
+      heat_results: "{{heat_results + [item| regex_replace('^.*=(.*)$','\\1')]}}"
+    loop: "{{heat_results}}"
+    when: "'servers' in item"
+  
+  - name: Split internal ip address into a list
+    set_fact:
+      heat_results: "{{(heat_results + item.split(',')) | reject('search', item) | list}}"
+    loop: "{{heat_results | select() | list}}"
+    when: item != '' and item[0] | int == 1
+
+  - name: Remove trailing chars (heat_settings)
+    set_fact:
+      heat_results: "{{heat_results | map('replace', ',' ,'') | list}}"
+
+  - block:
+    - name: Removing white spaces
+      set_fact:
+        results: "{{heat_check  | regex_replace(' ','')}}"
+
+    - name: Validating heat settings
+      set_fact:
+        expected_results: "{{(results + memcache_server)| difference(heat_results)}}"
+
+    - name: Validating heat settings
+      set_fact:
+        actual_results: "{{heat_results| difference(results + memcache_server)}}"
+
+  - name: Combine controller heat results to a dictionary (train)
+    set_fact:
+      heat_settings_results: "{{ heat_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: heat
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

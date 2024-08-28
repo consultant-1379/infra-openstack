@@ -1,0 +1,10 @@
+{% set max_avail = {'max_value' : '0'} %}
+{% set host_name = {'name': ''} %}
+
+{% for node in computes %}
+{%- if node.available_memory|int() > max_avail['max_value']|int() %}
+{{- max_avail.update({'max_value' : node.available_memory}) }}
+{{- host_name.update({'name': node.host}) }}
+{%- endif %}
+{% endfor %}
+"Best host is {{host_name['name']}} {{max_avail['max_value']}}MB"

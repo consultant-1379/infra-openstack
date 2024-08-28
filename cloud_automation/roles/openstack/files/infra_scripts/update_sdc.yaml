@@ -1,0 +1,15 @@
+---
+#
+#Playbook created 
+#
+#
+- hosts: Controller
+  gather_facts: no
+  become: true
+
+  tasks:
+
+  - name: Copy sdc file to server
+    copy:
+       src: /home/stack/EMC-ScaleIO-sdc-3.6-200.105.el8.x86_64.rpm
+       dest: /home/heat-admin/

@@ -1,0 +1,120 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+# 20-network-environment.yaml
+# Follows RH documentation: https://access.redhat.com/documentation/en-us/red_hat_openstack_platform/13/html-single/advanced_overcloud_customization/index#custom-network-interface-templates
+#
+# The following files are used to configure the overcloud networking:
+#
+# {{openstack_env_directory}}/20-network-environment.yaml (this file) - defines some global network configuration parameters 
+# and references the custom NIC templates
+# {{openstack_overcloud_directory}}/ips-from-pool-all.yaml - defines the fixed IP addresses for each network on each
+# node type Computer or Controller. Fixed VIPs are also defined in this file.
+# {{openstack_overcloud_directory}}/overcloud/network_data.yaml - controls which networks are created and the 
+# IP address allocation pools for each network
+{% if os_release == "train" %}
+resource_registry:
+  # NIC configs (Custom NIC templates)
+
+{% if san_type == "flexos" %}
+  OS::TripleO::Controller::Net::SoftwareConfig:           {{ custom_controller_nicconfig | default('../nic-configs/train-controller-flexos.yaml') }}
+  OS::TripleO::Compute::Net::SoftwareConfig:              {{ custom_compute_nicconfig | default('../nic-configs/train-compute-flexos.yaml') }}
+{% else %}
+  OS::TripleO::Controller::Net::SoftwareConfig:           {{ custom_controller_nicconfig | default('../nic-configs/train-controller.yaml') }}
+  OS::TripleO::Compute::Net::SoftwareConfig:              {{ custom_compute_nicconfig | default('../nic-configs/train-compute.yaml') }}
+{% endif %}
+
+
+
+parameter_defaults:
+  # This sets 'external_network_bridge' in l3_agent.ini to an empty string
+  # so that external networks act like provider bridge networks (they
+  # will plug into br-int instead of br-ex)
+  NeutronExternalNetworkBridge: "''"
+
+  # Add in configuration for the Control Plane
+  # CIDR prefix /XX of the Internal API subnet
+  ControlPlaneSubnetCidr: "{{control_plane_cidr_prefix}}"
+  ControlPlaneDefaultRoute: "{{ provisioning_gateway }}"
+  EC2MetadataIp: "{{director_ctlplane_ip}}"
+  DnsServers: "{{dns_servers|join(',')}}"
+  DnsSearchDomains: "[ {{ domain}} ]"
+  NtpServer:  "{{ntp_servers|join(',')}}"
+  InitNTPServer: "{{ntp_servers|first}}"
+
+  # Bonding options for mgmt networks (only active/backup works in a virtual environment)
+  BondInterfaceOvsOptions: 'bond_mode=balance-slb'
+
+  # Bonding options for storage networks (only active/backup works in a virtual environment)
+  {% if two_tier_mlag == True %}
+#  BondStorageInterfaceOptions: 'mode=balance-xor xmit_hash_policy=layer3+4 miimon=100'
+  BondStorageInterfaceOptions: 'mode=4 miimon=100 xmit_hash_policy=layer3+4'
+  {% else %}
+  BondStorageInterfaceOptions: 'mode=active-backup miimon=100'
+  {% endif %}
+  # To refresh the overcloud nodes network configuration at every Overcloud Update
+  NetworkDeploymentActions: ['CREATE','UPDATE']
+
+  # Gateway router for the external network
+  ExternalInterfaceDefaultRoute: "{{external_ipv6_gateway if external_ipv6_subnet is defined else external_default_gateway}}"
+
+  # These parameters are defined here as they are used by the nic-config heat templates
+  ExternalNetworkVlanID: {{external_vlan_id}}
+  InternalApiNetworkVlanID: {{internal_api_vlan_id}}
+  TenantNetworkVlanID: {{tenant_vlan_id}}
+  StorageNetworkVlanID: {{storage_vlan_id}}
+  StorageMgmtNetworkVlanID: {{storage_mgmt_vlan_id}}
+  StorageNfsNetworkVlanID: {{storage_nfs_vlan_id| default(70)}}
+
+  {% if internal_api_ipv6_subnet is defined %}
+  #IPv6 only
+  ExternalNetCidr: '{{external_ipv6_subnet}}'
+  InternalApiNetCidr: '{{internal_api_ipv6_subnet}}'
+  # Overcloud deployment talks to keystone admin API endpoint (on external network)
+  # This is needed on compute nodes.
+  InternalApiInterfaceDefaultRoute: "{{internal_api_ipv6_gateway}}"
+
+  # Enable IPv6 for Corosync. This is required when Corosync is using an IPv6 IP in the cluster.
+  CorosyncIPv6: true
+  # Enable various IPv6 features in Nova.
+  NovaIPv6: true
+  # Enable IPv6 environment for RabbitMQ.
+  RabbitIPv6: true
+  # Enable IPv6 environment for Memcached.
+  MemcachedIPv6: true
+  # Enable IPv6 environment for MySQL.
+  MysqlIPv6: true
+  # Enable IPv6 environment for Redis.
+  RedisIPv6: true
+  {% endif %}
+
+#Added for wallaby
+{% elif os_release == "wallaby" %}
+
+parameter_defaults:
+  # This sets 'external_network_bridge' in l3_agent.ini to an empty string
+  # so that external networks act like provider bridge networks (they
+  # will plug into br-int instead of br-ex)
+  NeutronExternalNetworkBridge: "''"
+
+  # Add in configuration for the Control Plane
+  # CIDR prefix /XX of the Internal API subnet
+  ControlPlaneSubnetCidr: "{{control_plane_cidr_prefix}}"
+  ControlPlaneDefaultRoute: "{{ provisioning_gateway }}"
+  DnsServers: "{{dns_servers|join(',')}}"
+  DnsSearchDomains: "[ {{ domain}} ]"
+  NtpServer:  "{{ntp_servers|join(',')}}"
+  InitNTPServer: "{{ntp_servers|first}}"
+
+  # Bonding options for mgmt networks (only active/backup works in a virtual environment)
+  # BondInterfaceOvsOptions: 'bond_mode=balance-slb'
+
+  NetworkDeploymentActions: ['CREATE','UPDATE']
+
+  # Gateway router for the external network
+  ExternalInterfaceDefaultRoute: "{{external_ipv6_gateway if external_ipv6_subnet is defined else external_default_gateway}}"
+
+  # NEED TO UPDATE THIS SECTION WITH PATH AND FILE FORMAT
+  ControllerNetworkConfigTemplate: '../nic-configs/wallaby-controller-flexos.j2'
+  ComputeNetworkConfigTemplate: '../nic-configs/wallaby-compute-flexos.j2'
+
+
+{% endif %}

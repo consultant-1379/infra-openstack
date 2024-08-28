@@ -1,0 +1,48 @@
+parameter_defaults:
+{% if glance_backend == 'cinder' %}
+  GlanceBackend: {{ glance_backend }}
+{% endif %}
+  DockerCinderVolumeImage: {{ director_ctlplane_ip }}:8787/hpe3parcinder/hpe3parcinder:latest
+  CinderEnableIscsiBackend: false
+  Debug: true
+  ControllerExtraConfig:
+    cinder::config::cinder_config:
+      # first backend
+      # parameters used for WSAPI calls
+      # HTTP needs to enabled on the storage array
+      {{ volume_backend_name }}/hpe3par_api_url:
+        value: http://{{ hpe3par_san_ip }}:{{ hpe3par_api_port }}/api/v1
+      {{ volume_backend_name }}/hpe3par_username:
+        value: {{ hpe3par_username }}
+      {{ volume_backend_name }}/hpe3par_password:
+        value: {{ hpe3par_password }}
+      {{ volume_backend_name }}/hpe3par_debug:
+        value: True
+      # parameters used for ssh calls
+      {{ volume_backend_name }}/san_ip:
+        value: {{ hpe3par_san_ip }}
+      {{ volume_backend_name }}/san_login:
+        value: {{ hpe3par_username }}
+      {{ volume_backend_name }}/san_password:
+        value: {{ hpe3par_password }}
+      {{ volume_backend_name }}/volume_backend_name:
+        value: {{ volume_backend_name }}
+      {{ volume_backend_name }}/hpe3par_cpg:
+        value: {{ hpe3par_cpg }}
+      {{ volume_backend_name }}/max_over_subscription_ratio:
+        value: {{ max_over_subscription_ratio }}
+      {{ volume_backend_name }}/reserved_percentage:
+        value: {{ reserved_percentage }}
+      {{ volume_backend_name }}/image_volume_cache_enabled:
+        value: {{ image_volume_cache_enabled }}
+{% if san_type == '3par' and san_protocol == 'iSCSI' %}
+      {{ volume_backend_name }}/hpe3par_iscsi_ips:
+        value: {{ hpe3par_iscsi_ips }}
+{% endif %}
+      {{ volume_backend_name }}/volume_driver:
+{% if san_type == '3par' and san_protocol == 'iSCSI' %}
+        value: cinder.volume.drivers.hpe.hpe_3par_iscsi.HPE3PARISCSIDriver
+{% else %}
+        value: cinder.volume.drivers.hpe.hpe_3par_fc.HPE3PARFCDriver
+{% endif %}
+

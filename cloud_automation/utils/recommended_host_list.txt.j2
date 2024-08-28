@@ -1,0 +1,36 @@
+{% for host in ansible_play_hosts %}
+{% if hostvars[host]["recommended_hosts"]["hosts_for_all_vms"][0] is defined %}
+####################
+VMs from {{host}}:
+{% for server_list in hostvars[host]["recommended_hosts"]["servers"] %}
+{% if 'affinity_vms' in server_list %}
+{% for server in server_list['affinity_vms'] %}
+    {{server[0]}}   {{server[1]}}   {{server[2]}}
+{% endfor %}
+{% else %}
+{% for server in server_list['anti_affinity_vms'] %}
+    {{server[0]}}   {{server[1]}}   {{server[2]}}
+{% endfor %}
+{% endif %}
+{% endfor %}
+Can be moved to:
+{% for h_all in hostvars[host]["recommended_hosts"]["hosts_for_all_vms"] %}
+    {{h_all}}
+{% endfor -%}
+{% endif %}
+####################
+VMs from {{host}}:
+{% for dict_of_hosts in hostvars[host]["recommended_hosts"]["hosts_for_single_vm"] %}
+{% for vm in dict_of_hosts['vms'] %}
+    {{ vm[0] }}   {{ vm[1] }}   {{ vm[2] }}
+{% endfor %}
+Can be moved to:
+{% for host in dict_of_hosts['valid_hosts'] %}
+    {{host}}
+{% endfor %}
+------
+{% endfor %}
+openstack server migrate --block-migration --live {host_id} {vm_id} --wait
+{% endfor %}
+
+

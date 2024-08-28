@@ -1,0 +1,192 @@
+---
+# Undercloud config
+rhsm_pool: f36bc88a-2a6c-4bab-8224-b46c37b2fbb9 
+# Proxy configuration
+use_proxy: False
+http_proxy: http://atproxy2.athtem.eei.ericsson.se:3128
+undercloud_fqdn: ieatrheldir11a.athtem.eei.ericsson.se
+# undercloud_public_ip should be on the ctlplane network
+undercloud_public_ip: 10.232.75.136
+# undercloud_admin_host_ip should be on the ctlplane network
+undercloud_admin_host_ip: 10.232.75.137
+# Director Control plane fully qualified name required for Registry
+director_ctlplane_fqdn: ieatrheldir11a.ctlplane.athtem.eei.ericsson.se
+
+domain: athtem.eei.ericsson.se
+
+director_ctlplane_ip: 10.232.75.133
+# i.e. 25 for a 10.10.10.0/25 network
+control_plane_cidr_prefix: 25
+# i.e. include ip and subnet - 10.10.10.0/25
+provisioning_subnet: 10.232.75.128/25
+# director ctlplane IP address is outside of the DHCP range
+# number of DHCP IP addresses required is # of controllers + # of computes + 1 for DHCP agent on director
+# undercloud_admin_host_ip and undercloud_public_ip are on the ctlplane network but should not be in the DHCP range
+provisioning_dhcp_start: 10.232.75.139
+provisioning_dhcp_end: 10.232.75.194
+# introspection IP address range  must not overlap with the DHCP range
+provisioning_introspection_start: 10.232.75.195
+provisioning_introspection_end: 10.232.75.250
+provisioning_gateway: 10.232.75.129
+
+# Version of redhat and rhosp to be used
+rhel_release: 8.4
+rhosp_release: 16.2.2
+
+
+# Overcloud config
+os_release: train
+
+
+# Set instance_ha to True if  InstanceHA will be enabled on this deployment
+instance_ha: False
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname: cloud11a.athtem.eei.ericsson.se
+# Once the signed SSL certificate has been received, copy it and its private key into cloudX directory
+# SSL Certificate file name for the cloud
+# cloud_dir will be substituted when the start_deploy.sh script is run.
+# Enter the path like this: {{cloud_dir}}/cloudX.athtem.eei.ericsson.se.key
+ssl_cert: '{{cloud_dir}}/cloud11a.athtem.eei.ericsson.se.cer'
+# private key file name of the SSL Certificate
+ssl_cert_private_key: '{{cloud_dir}}/cloud11a.athtem.eei.ericsson.se.key'
+
+node_prefix: "cloud11a"
+
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password: "{{ipmi_password}}"
+pm_type: pxe_ipmitool
+
+#Enter boot_mode .... bios for blades or uefi for racks
+boot_mode: bios
+
+ome:
+  ip: 10.45.206.12
+  user: stack
+  password: "{{ome_password}}"
+  # Group name in OME e.g. Cloud-12
+  group: Cloud11
+  # ilo hostname of the director host
+  director_host: ieatosk825ilo.athtem.eei.ericsson.se
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  - 10.232.63.52
+  - 10.232.63.53
+  - 10.232.63.54
+
+# Set 'all_racks' to True if this deployment is a HPE all rack deployment
+all_racks: False
+
+
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: False
+is_dell_deployment: True
+# Network Configuration
+# Number of compute nodes
+compute_count: 31
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 0
+
+
+
+# External Network
+external_default_gateway: 10.59.149.1
+external_subnet: 10.59.149.0/26
+external_pool_start: 10.59.149.10
+external_pool_end: 10.59.149.12
+external_vlan_id: 448
+
+
+# Internal API network
+internal_api_subnet: 10.232.75.0/25
+internal_api_gateway: 10.232.75.1
+internal_api_pool_start: 10.232.75.13
+internal_api_pool_end: 10.232.75.120
+internal_api_vlan_id: 442
+
+
+# Storage Network
+storage_subnet: 10.150.110.0/24
+storage_gateway: 10.150.110.1
+storage_pool_start: 10.150.110.11
+storage_pool_end: 10.150.110.250
+storage_vlan_id: 424
+
+# Storage NFS Network
+storage_nfs_subnet: 10.150.112.0/24
+storage_nfs_gateway: 10.150.112.1
+storage_nfs_pool_start: 10.150.112.20
+storage_nfs_pool_end: 10.150.112.250
+storage_nfs_vlan_id: 426
+
+# Storage Management Network
+storage_mgmt_subnet: 10.150.111.0/24
+storage_mgmt_gateway: 10.150.111.1
+storage_mgmt_pool_start: 10.150.111.11
+storage_mgmt_pool_end: 10.150.111.250
+storage_mgmt_vlan_id: 425
+
+# Tenant Network
+tenant_subnet: 10.232.76.128/25
+tenant_pool_start: 10.232.76.139
+tenant_pool_end: 10.232.76.250
+tenant_vlan_id: 445
+
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 10.59.149.9
+
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  - 10.59.149.17
+  - 10.59.149.18
+  - 10.59.149.19
+
+
+#Flexos and nfs share details - required for routes
+storage_flexos_subnet: 10.232.248.0/24
+storage_mgmt_flexos_subnet: 10.232.249.0/24
+storage_nfs_share_subnet: 10.150.22.176/28
+
+san_storage_pool: PD01:PD01_FG01
+san_ip: 10.232.247.254
+san_user: admin
+san_password: "{{san_password}}"
+san_type: flexos
+san_backend_name: flexos
+mdm_ips:
+  - 10.232.248.254
+  - 10.232.249.254
+
+glance_backend: file
+# enable or disable image volume caching true/false
+image_volume_cache: False
+
+# NFS Settings for non-ceph deployments
+
+# IP addresses for NFS shares
+glancenfs_ip_1: 10.150.22.185
+glancenfs_ip_2: 10.150.22.185
+gnochhinfs_ip_1: 10.150.22.185
+gnochhinfs_ip_2: 10.150.22.185
+cinderbackup_nfs_ip: 10.150.22.185
+nova_nfs_ip1: 10.150.22.185
+nova_nfs_ip2: 10.150.22.185
+
+
+# NFS Share path - add path to override the defaults, otherwise leave empty
+# e.g. /glance for  10.10.10.123:/glance
+# default share path is /glance
+glance_share: /Cloud11A_NFS_Glance
+# default share path is /glance_staging
+glance_staging_share: /Cloud11A_NFS_Staging
+# default share path is /cinder_backup
+cinder_backup_share: /Cloud11A_Cinder_Backup
+# default share path is /nova_ephemeral
+#nova_ephemeral_share:

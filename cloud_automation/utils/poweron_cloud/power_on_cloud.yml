@@ -1,0 +1,219 @@
+---
+- name: Controller Play
+  hosts: Controller
+  gather_facts: no
+  become: no
+  vars:
+    hp_ilo_username: cloud
+    hp_ilo_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          36343338313432393134326138626363343233636363616636363561393631313333656136396163
+          6434343737353336313538633335653237316661313337340a386635336663326461626435623061
+          65326366663234313738616363343865353239666138613832613330666439636166613162643933
+          6166303737663830340a383732303731313835396436623466386235656166303565303131383231
+          6339
+    hp_redfish_system_path: redfish/v1/Systems/1
+    dell_ilo_username: root
+    dell_ilo_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          30643332373837613834623062653562313464353633633436303364663236333638326232643330
+          6235376230323539306637666330646363393732383839660a636465333338633463616432363865
+          32323938633437623862663035323765646431653933383139336634373434373832303136343835
+          3362646462313233320a313030656162343666353430303539343536646436313136646531633938
+          3935
+    dell_redfish_system_path: redfish/v1/Systems/System.Embedded.1
+    start_delay: 20 # Adds a pause in seconds when starting servers
+  tasks:
+    - name: Controller iLO tasks
+      block:
+        # ctrl_hw_type comes from survey in AWX
+        - name: Set Controller iLO variables 
+          set_fact:
+            ctrl_username: "{{ hp_ilo_username if 'HP' in ctrl_hw_type else dell_ilo_username }}"
+            ctrl_password: "{{ hp_ilo_password if 'HP' in ctrl_hw_type else dell_ilo_password }}"
+            ctrl_system_path: "{{ hp_redfish_system_path if 'HP' in ctrl_hw_type else dell_redfish_system_path }}"
+        
+        # Power on Controller Nodes and ensure they are reachable
+        - name: Power on controller servers
+          uri:
+            force_basic_auth: yes
+            method: POST
+            body: '{"ResetType": "On"}'
+            body_format: json
+            headers:
+              Accept: application/json
+            user: "{{ ctrl_username }}"
+            password: "{{ ctrl_password }}"
+            url: "https://{{ hostvars[item]['ilo_ip'] }}/{{ ctrl_system_path }}/Actions/ComputerSystem.Reset/"
+            validate_certs: no
+            status_code:
+              - 200 # HP OK
+              - 204 # Dell OK
+          loop: "{{ groups['Controller'] }}"
+          loop_control:
+            pause: "{{ start_delay }}"
+          ignore_errors: True
+
+        - name: Check controller power state is On
+          uri:
+            force_basic_auth: yes
+            method: GET
+            headers:
+              Accept: application/json
+            user: "{{ ctrl_username }}"
+            password: "{{ ctrl_password }}"
+            url: "https://{{ hostvars[item]['ilo_ip'] }}/{{ ctrl_system_path }}/"
+            validate_certs: no
+            return_content: yes
+          loop: "{{ groups['Controller'] }}"
+          register: power_state
+          until: power_state.json.PowerState == 'On'
+          retries: 60
+          delay: 10
+
+        # Wait for port 22 to become open and contain "OpenSSH"
+        - name: Wait for controller servers to be accessible via SSH
+          wait_for:
+            port: 22
+            host: "{{ hostvars[item]['ansible_host'] }}"
+            search_regex: OpenSSH
+            connect_timeout: 2
+            delay: 5
+            timeout: 1200
+          loop: "{{ groups['Controller'] }}"
+          delegate_to: director
+
+        - name: Wait for pcs cluster to be fully started
+          pause:
+            minutes: 20
+      run_once: yes
+      delegate_to: localhost
+
+    - name: Check controller pcs service tasks
+      block:
+        # Check pcs galera, rabbitmq, redis and haproxy services are up
+        - name: Check galera cluster service
+          shell: "pcs status |tr -d '*' |grep '^[[:blank:]]*galera-bundle'|awk '{print $1, $3, $4}'"
+          register: galera_service              
+          failed_when: galera_service.stdout_lines | select('regex', 'master', ignorecase=true) | list | length < 3
+
+        - name: Check rabbitmq cluster service
+          shell: "pcs status |tr -d '*' |grep '^[[:blank:]]*rabbitmq-bundle'|awk '{print $1, $3, $4}'"
+          register: rabbitmq_service
+          failed_when: rabbitmq_service.stdout_lines | select('regex', 'started', ignorecase=true) | list | length < 3
+
+        - name: Check redis cluster service
+          shell: "pcs status |tr -d '*' |grep '^[[:blank:]]*redis-bundle'|awk '{print $1, $3, $4}'"
+          register: redis_service
+          failed_when: redis_service.stdout_lines | select('regex', 'master|slave', ignorecase=true) | list | length < 3
+
+        - name: Check haproxy cluster service
+          shell: "pcs status |tr -d '*' |grep '^[[:blank:]]*haproxy-bundle'|awk '{print $1, $3, $4}'"
+          register: haproxy_service
+          failed_when: haproxy_service.stdout_lines | select('regex', 'started', ignorecase=true) | list | length < 3
+      become: yes
+      run_once: yes
+
+    - name: Check openstack tripleo services are running
+      block:      
+        - name: Get list of tripleo services running on controller nodes
+          shell: systemctl list-unit-files tripleo_* --state=enabled | awk '/^tripleo_/{ print $1 }'
+          register: tripleo_services
+          run_once: yes
+
+        - debug:
+            var: tripleo_services.stdout_lines
+          run_once: yes
+      
+        - name: "Ensure tripleo services are started on each controller node"
+          systemd:
+            name: "{{ item }}"
+            state: started
+          loop: "{{ tripleo_services | json_query('stdout_lines[]') }}"
+          become: yes
+
+- name: Compute Play
+  hosts: localhost
+  gather_facts: no
+  become: no
+  vars:
+    hp_ilo_username: cloud
+    hp_ilo_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          36343338313432393134326138626363343233636363616636363561393631313333656136396163
+          6434343737353336313538633335653237316661313337340a386635336663326461626435623061
+          65326366663234313738616363343865353239666138613832613330666439636166613162643933
+          6166303737663830340a383732303731313835396436623466386235656166303565303131383231
+          6339
+    hp_redfish_system_path: redfish/v1/Systems/1
+    dell_ilo_username: root
+    dell_ilo_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          30643332373837613834623062653562313464353633633436303364663236333638326232643330
+          6235376230323539306637666330646363393732383839660a636465333338633463616432363865
+          32323938633437623862663035323765646431653933383139336634373434373832303136343835
+          3362646462313233320a313030656162343666353430303539343536646436313136646531633938
+          3935
+    dell_redfish_system_path: redfish/v1/Systems/System.Embedded.1
+    start_delay: 20 # Adds a pause in seconds when starting servers
+  tasks:
+    # comp_hw_type comes from survey in AWX
+    - name: Set Compute iLO variables 
+      set_fact:
+        comp_username: "{{ hp_ilo_username if 'HP' in comp_hw_type else dell_ilo_username }}"
+        comp_password: "{{ hp_ilo_password if 'HP' in comp_hw_type else dell_ilo_password }}"
+        comp_system_path: "{{ hp_redfish_system_path if 'HP' in comp_hw_type else dell_redfish_system_path }}"
+
+    # Power on Compute Nodes and ensure they are reachable
+    - name: Power on compute servers
+      uri:
+        force_basic_auth: yes
+        method: POST
+        body: '{"ResetType": "On"}'
+        body_format: json
+        headers:
+          Accept: application/json
+        user: "{{ comp_username }}"
+        password: "{{ comp_password }}"
+        url: "https://{{ hostvars[item]['ilo_ip'] }}/{{ comp_system_path }}/Actions/ComputerSystem.Reset/"
+        validate_certs: no
+        status_code:
+          - 200 # HP OK
+          - 204 # Dell OK
+      loop: "{{ groups['Compute'] }}"
+      loop_control:
+        pause: "{{ start_delay }}"
+      ignore_errors: True
+
+    - name: Wait 1 minute for Compute Nodes to power on
+      pause:
+        minutes: 1
+
+    - name: Check compute power state is On
+      uri:
+        force_basic_auth: yes
+        method: GET
+        headers:
+          Accept: application/json
+        user: "{{ comp_username }}"
+        password: "{{ comp_password }}"
+        url: "https://{{ hostvars[item]['ilo_ip'] }}/{{ comp_system_path }}/"
+        validate_certs: no
+        return_content: yes
+      loop: "{{ groups['Compute'] }}"
+      register: power_state
+      until: power_state.json.PowerState == 'On'
+      retries: 60
+      delay: 10
+
+    # Wait for port 22 to become open and contain "OpenSSH"
+    - name: Wait for compute servers to be accessible via SSH
+      wait_for:
+        port: 22
+        host: "{{ hostvars[item]['ansible_host'] }}"
+        search_regex: OpenSSH
+        connect_timeout: 2
+        delay: 5
+        timeout: 1200
+      loop: "{{ groups['Compute'] }}"
+      delegate_to: director

@@ -1,0 +1,27 @@
+---
+- hosts: Compute
+  gather_facts: no
+
+  tasks:
+    - name: List of top 5 memory usage.
+      shell: ps aux --sort -rss | grep 'qemu-kvm' | head -5 | awk '{ gsub(/guest=|,debug-threads=on/,"",$13);printf("%dGB %s\n",$6/1024/1024,$13) }'
+      register: process_list
+
+    - name: Get nova names for most used VMs.
+      shell: virsh dumpxml "{{item.split(' ')[-1]}}" | awk '/nova:name/{gsub(/<[\/]?nova:name>/,"",$1);print $1 }'
+      loop: "{{process_list.stdout_lines}}"
+      register: nova_list
+      become: true
+
+    - set_fact:
+        allNovaInstances: "{{nova_list.results | map(attribute='stdout_lines') | list | flatten}}"
+
+    - set_fact:
+        listOfVMsAndNova: "{{process_list.stdout_lines | zip(allNovaInstances) | list}}"
+
+    - name: Save nova names for most used VMs to a file.
+      template:
+        src: output.txt.j2
+        dest: output.txt
+      delegate_to: localhost
+      run_once: yes

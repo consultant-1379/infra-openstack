@@ -1,0 +1,20 @@
+---
+  - name: Creates directory
+    file:
+      path: "{{ output_file }}"
+      state: directory
+      mode: 0777
+    connection: local
+    run_once: yes
+    ignore_errors: yes
+    become: no
+    tags:
+      - networking
+      - queens
+      - train
+
+  - include: gather_network_settings.yaml
+    tags:
+      - networking
+      - queens
+      - train

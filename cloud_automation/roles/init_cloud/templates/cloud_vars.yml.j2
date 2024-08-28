@@ -1,0 +1,348 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+---
+# Undercloud config
+{% if openstack_version == "train" %}
+rhsm_pool: 
+{% endif %}
+# Proxy configuration
+use_proxy: False
+http_proxy: http://atproxy2.athtem.eei.ericsson.se:3128
+undercloud_fqdn: {{ director_fqdn }}
+# undercloud_public_ip should be on the ctlplane network
+undercloud_public_ip: {{undercloud_public_ip_address}}
+
+# undercloud_admin_host_ip should be on the ctlplane network
+undercloud_admin_host_ip:
+{% if openstack_version == "train" %}
+# Director Control plane fully qualified name required for Registry
+director_ctlplane_fqdn:
+
+{% endif %}
+domain: athtem.eei.ericsson.se
+
+director_ctlplane_ip:
+# i.e. 25 for a 10.10.10.0/25 network
+control_plane_cidr_prefix: 
+# i.e. include ip and subnet - 10.10.10.0/25
+provisioning_subnet:
+# director ctlplane IP address is outside of the DHCP range
+# number of DHCP IP addresses required is # of controllers + # of computes + 1 for DHCP agent on director
+{% if openstack_version == "train" %}
+# undercloud_admin_host_ip and undercloud_public_ip are on the ctlplane network but should not be in the DHCP range
+{% endif %}
+provisioning_dhcp_start:
+provisioning_dhcp_end:
+# introspection IP address range  must not overlap with the DHCP range
+provisioning_introspection_start:
+provisioning_introspection_end: 
+provisioning_gateway:
+
+# Version of redhat and rhosp to be used
+rhel_release: {{ rhel_release }}
+rhosp_release: {{ rhosp_release }}
+# true or false
+use_ovn: 'false'
+
+
+# Overcloud config
+os_release: {{ openstack_version }}
+
+
+# Set instance_ha to True if  InstanceHA will be enabled on this deployment
+instance_ha: {{instance_ha}}
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname:
+# Once the signed SSL certificate has been received, copy it and its private key into cloudX directory
+# SSL Certificate file name for the cloud
+# cloud_dir will be substituted when the start_deploy.sh script is run.
+# Enter the path like this: {% raw %}{{cloud_dir}}{% endraw %}/cloudX.athtem.eei.ericsson.se.key
+ssl_cert: '{% raw %}{{cloud_dir}}{% endraw %}/'
+# private key file name of the SSL Certificate
+ssl_cert_private_key: '{% raw %}{{cloud_dir}}{% endraw %}/'
+
+node_prefix: "{{cloudname.split('.')|first}}"
+
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password: "{% raw %}{{ipmi_password}}{% endraw %}"
+pm_type: pxe_ipmitool
+
+#Enter boot_mode .... bios for blades or uefi for racks
+boot_mode: 
+
+{% if hw_type == 'dell' or hw_type == 'mix' %}
+ome:
+  ip:
+  user:
+  password: "{% raw %}{{ome_password}}{% endraw %}"
+  # Group name in OME e.g. Cloud-12
+  group:
+  # ilo hostname of the director host
+  director_host:
+{% endif %}
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  -
+  -
+  -
+{% if (hw_type == 'hpe' or hw_type == 'mix') and not all_racks %}
+# List of OA IP addresses for deployments where all servers are HPE blades or
+# where the controllers are Dell rack servers and the computes are HPE blades.
+oa_ips:
+  -
+{% endif %}
+
+# Set 'all_racks' to True if this deployment contains HPE rack servers
+all_racks: {{all_racks}}
+
+{% if all_racks %}
+# add the iLO IP address for each rack server
+ilos:
+  - <iLO IP 1>
+  - <iLO IP 2>
+{% endif %}
+
+{% if chassis_split %}
+chassis_half: {{chassis_half}}
+{% endif %}
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+# If the deployment contains a mix of HPE and Dell servers set both is_hpe_deployment and is_dell_deployment
+# to True
+is_hpe_deployment: {{hw_type == 'hpe' or hw_type == 'mix'}}
+is_dell_deployment: {{hw_type == 'dell' or hw_type == 'mix'}}
+# Network Configuration
+# Number of compute nodes
+compute_count:
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 0
+
+{% if ipv6 %}
+# DNS Servers
+dns_servers:
+  - '2001:1b70:6207:0014:0000:0217:0002:0001'
+  - '2001:1b70:6207:0014:0000:0217:0003:0001'
+# NTP Servers
+ntp_servers:
+  - '2001:1b70:6207:0014:0000:0217:0002:0001'
+  - '2001:1b70:6207:0014:0000:0217:0001:0001'
+{% endif %}
+
+{% if ipv6 or dual_stack %}
+custom_controller_nicconfig: '../nic-configs/controller_ipv6.yaml'
+custom_compute_nicconfig: '../nic-configs/compute_ipv6.yaml'
+{% endif %}
+
+#True or False for 2tier mlag
+two_tier_mlag: False
+
+#True if NIC card used for both Traffic and Storage else False
+split_ports: True
+
+#if Traffic nics are active-active
+ovs_bond_option: active-active
+
+# External Network
+{% if ipv4 or dual_stack %}
+external_default_gateway:
+external_subnet:
+external_pool_start:
+external_pool_end:
+external_vlan_id:
+{% endif %}
+{% if ipv6 or dual_stack %}
+external_ipv6_gateway:
+external_ipv6_subnet:
+external_ipv6_start:
+external_ipv6_end:
+{% endif %}
+
+# Internal API network
+{% if ipv4 or dual_stack %}
+internal_api_subnet:
+internal_api_gateway:
+internal_api_pool_start:
+internal_api_pool_end:
+internal_api_vlan_id:
+{% endif %}
+{% if ipv6 or dual_stack %}
+internal_api_ipv6_gateway:
+internal_api_ipv6_subnet:
+internal_api_ipv6_start:
+internal_api_ipv6_end:
+{% endif %}
+
+# Storage Network
+storage_subnet:
+storage_gateway:
+storage_pool_start:
+storage_pool_end:
+storage_vlan_id:
+
+{% if glance_backend_type == "file" %}
+# Storage NFS Network
+storage_nfs_subnet:
+storage_nfs_gateway:
+storage_nfs_pool_start:
+storage_nfs_pool_end:
+storage_nfs_vlan_id:
+{% endif %}
+
+# Storage Management Network
+storage_mgmt_subnet:
+storage_mgmt_gateway:
+storage_mgmt_pool_start:
+storage_mgmt_pool_end:
+storage_mgmt_vlan_id:
+
+# Tenant Network
+tenant_subnet:
+tenant_pool_start:
+tenant_pool_end:
+tenant_vlan_id:
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 
+
+{% if ipv4 %}
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  -
+  -
+  -
+{% endif %}
+{% if ipv6 or dual_stack %}
+# Fixed IPv6 addresses
+controller_external_ipv6_ips:
+  -
+  -
+  -
+controller_internal_ipv6_api_ips:
+  -
+  -
+  -
+{% endif %}
+
+{% set use_nfs = False if storage_type == "ceph" or glance_backend_type != "file" else True %}
+{% if storage_type == "ceph" %}
+
+ceph_cluster_fsid: 
+ceph_client_key: '{% raw %}{{ceph_client_key_secret}}{% endraw %}'
+# Enter Ceph Monitoring host IP addresses in single quotes separated by commas
+# e.g. '172.16.1.7, 172.16.1.8'
+ceph_external_mon_host: 
+
+# CEPH Pools for hosting VMs, Volumes, Cinder Backups, Images, Metrics
+nova_rbd_pool_name:
+cinder_rbd_pool_name:
+cinder_backup_rbd_pool_name:
+glance_rbd_pool_name:
+gnocchi_rbd_pool_name:
+ceph_client_user_name:
+san_type: {{ storage_type }}
+
+{% elif storage_type == "3par" %}
+# 3par Cinder Backend config
+# WSAPI HTTP IP Address & Port, default port is 8008
+hpe3par_san_ip:
+hpe3par_api_port:
+
+# 3PAR login details
+hpe3par_username:
+hpe3par_password: "{% raw %}{{san_password}}{% endraw %}"
+
+# 3PAR backend name
+volume_backend_name:
+
+# Name of the CPG created on the 3PAR
+hpe3par_cpg:
+
+# SAN protocol: iSCSI or FC
+san_protocol: {{ san_protocol_type }}
+
+{% if san_protocol_type == 'iSCSI' %}
+# iSCSI IPs configured on 3PAR, comma separated list
+# iSCSI IPs example: 10.10.10.10, 10.10.10.20
+hpe3par_iscsi_ips:
+{% endif %}
+# used for over subscription of thin provisioned volumes. E.g. 10.0
+max_over_subscription_ratio: 2.5
+
+# used to prevent over provisioning on the HPE 3PAR. E.g. 15
+reserved_percentage: 15
+
+# Image-Volume Cache is supported in the HPE 3PAR driver
+# Value can be True or False
+image_volume_cache_enabled:
+
+san_type: {{ storage_type }}
+
+{% elif storage_type == 'flexos' %}
+
+#Flexos and nfs share details - required for routes
+storage_flexos_subnet:
+storage_mgmt_flexos_subnet:
+storage_nfs_share_subnet:
+
+san_storage_pool:
+san_ip:
+san_user:
+san_password: "{% raw %}{{san_password}}{% endraw %}"
+san_type: {{ storage_type }}
+san_backend_name:
+mdm_ips:
+  - <IP address> 
+  - <IP address>
+
+sdc_agent_version:
+{% else %}
+# Unity / VNX Cinder Backend config
+# Name of the storage pool to create on the VNX/Unity
+san_storage_pool:
+san_ip:
+san_user:
+san_password: "{% raw %}{{san_password}}{% endraw %}"
+# SAN protocol: iSCSI or FC
+san_protocol: {{ san_protocol_type }}
+# SAN ports:
+# iSCSI example: spa_iom_0_eth1,spb_iom_0_eth1,spa_iom_0_eth0,spb_iom_0_eth0
+# FC example: A-0,B-0,A-2,B-2
+san_ports:
+# san_type must be either 'vnx' or 'unity'
+san_type: {{ storage_type }}
+san_backend_name:
+{% endif %}
+
+glance_backend: {{ glance_backend_type }}
+# enable or disable image volume caching true/false
+image_volume_cache: False
+
+{% if use_nfs %}
+# NFS Settings for non-ceph deployments
+
+# IP addresses for NFS shares
+glancenfs_ip_1:
+glancenfs_ip_2:
+gnochhinfs_ip_1:
+gnochhinfs_ip_2:
+cinderbackup_nfs_ip:
+nova_nfs_ip1:
+nova_nfs_ip2: 
+
+
+# NFS Share path - add path to override the defaults, otherwise leave empty
+# e.g. /glance for  10.10.10.123:/glance
+# default share path is /glance
+glance_share:
+# default share path is /glance_staging
+glance_staging_share:
+# default share path is /cinder_backup
+cinder_backup_share:
+# default share path is /nova_ephemeral
+nova_ephemeral_share:
+{% endif %}

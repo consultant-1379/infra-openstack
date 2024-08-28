@@ -1,0 +1,15 @@
+  - name: Save controller Files
+    fetch:
+      src: "{{ item }}"
+      dest: "{{ store_path }}/{{ item.split('/')[-2:]|join('/') }}/{{ inventory_hostname }}"
+      flat: yes
+    loop: "{{ controller_files }}"
+    become: yes
+
+  - name: Remove commented lines and spaces
+    lineinfile:
+      path: "{{ store_path }}/{{ item.split('/')[-2:]|join('/') }}/{{ inventory_hostname }}"
+      regexp: '^#|^$'
+      state: absent
+    loop: "{{ controller_files }}"
+    connection: local

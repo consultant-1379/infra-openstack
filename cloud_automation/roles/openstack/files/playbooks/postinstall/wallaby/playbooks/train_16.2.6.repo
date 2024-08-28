@@ -1,0 +1,35 @@
+[ansible-2.9-for-rhel-8-x86_64-rpms-16.2.6]
+name=ansible 2.9 for rhel 8
+enabled=1
+baseurl=http://10.44.77.158/repo3/openstack/repo/16.2.6/ansible-2.9-for-rhel-8-x86_64-rpms
+gpgcheck=0
+
+[fast-datapath-for-rhel-8-x86_64-rpms-16.2.6]
+name=fast datapath for rhel 8
+enabled=1
+baseurl=http://10.44.77.158/repo3/openstack/repo/16.2.6/fast-datapath-for-rhel-8-x86_64-rpms
+gpgcheck=0
+
+[openstack-16.2-for-rhel-8-x86_64-rpms-16.2.6]
+name=openstack 16.2 for rhel 8
+enabled=1
+baseurl=http://10.44.77.158/repo3/openstack/repo/16.2.6/openstack-16.2-for-rhel-8-x86_64-rpms
+gpgcheck=0
+
+[rhel-8-for-x86_64-appstream-tus-rpms-16.2.6]
+name=rhel 8 for x86_64 appstream
+enabled=1
+baseurl=http://10.44.77.158/repo3/openstack/repo/16.2.6/rhel-8-for-x86_64-appstream-tus-rpms
+gpgcheck=0
+
+[rhel-8-for-x86_64-baseos-tus-rpms-16.2.6]
+name=rhel 8 for x86_64 baseos
+enabled=1
+baseurl=http://10.44.77.158/repo3/openstack/repo/16.2.6/rhel-8-for-x86_64-baseos-tus-rpms
+gpgcheck=0
+
+[rhel-8-for-x86_64-highavailability-tus-rpms-16.2.6]
+name=rhel 8 for x86_64 highavailability
+enabled=1
+baseurl=http://10.44.77.158/repo3/openstack/repo/16.2.6/rhel-8-for-x86_64-highavailability-tus-rpms
+gpgcheck=0

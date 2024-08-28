@@ -1,0 +1,180 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+{% if os_release == "train" %}
+# OVS Bond (bond0)
+- name: External
+  vip: true
+  name_lower: external
+  vlan: {{external_vlan_id}}
+  {% if external_ipv6_subnet is not defined %}
+  ip_subnet: '{{external_subnet}}'
+  allocation_pools: [{'start': '{{external_pool_start}}', 'end': '{{external_pool_end}}'}]
+  gateway_ip: '{{external_default_gateway}}'
+  {% else %}
+  ipv6_subnet: '{{external_ipv6_subnet}}'
+  ipv6: true
+  ipv6_allocation_pools: [{'start': '{{external_ipv6_start}}', 'end': '{{external_ipv6_end}}'}]
+  gateway_ipv6: '{{external_ipv6_gateway}}'
+  {% endif %}
+
+- name: InternalApi
+  name_lower: internal_api
+  vip: true
+  vlan: {{internal_api_vlan_id}}
+  {% if internal_api_ipv6_subnet is not defined %}
+  ip_subnet: '{{internal_api_subnet}}'
+  allocation_pools: [{'start': '{{internal_api_pool_start}}', 'end': '{{internal_api_pool_end}}'}]
+  {% else %}
+  ipv6: true
+  ipv6_subnet: '{{internal_api_ipv6_subnet}}'
+  ipv6_allocation_pools: [{'start': '{{internal_api_ipv6_start}}', 'end': '{{internal_api_ipv6_end}}'}]
+  gateway_ipv6: '{{internal_api_ipv6_gateway}}'
+  {% endif %}
+
+- name: Tenant
+  vip: false  # Tenant network does not use VIPs
+  name_lower: tenant
+  vlan: {{tenant_vlan_id}}
+  ip_subnet: '{{tenant_subnet}}'
+  allocation_pools: [{'start': '{{tenant_pool_start}}', 'end': '{{tenant_pool_end}}'}]
+
+
+- name: Management
+  # Management network is enabled by default for backwards-compatibility, but
+  # is not included in any roles by default. Add to role definitions to use.
+  enabled: true
+  vip: false  # Management network does not use VIPs
+  name_lower: management
+  vlan: 60
+  ip_subnet: '10.0.1.0/24'
+  allocation_pools: [{'start': '10.0.1.4', 'end': '10.0.1.250'}]
+  ipv6_subnet: 'fd00:fd00:fd00:6000::/64'
+  ipv6_allocation_pools: [{'start': 'fd00:fd00:fd00:6000::10', 'end': 'fd00:fd00:fd00:6000:ffff:ffff:ffff:fffe'}]
+
+# Linux bond (bond1)
+- name: Storage
+  vip: true
+  vlan: {{storage_vlan_id}}
+  name_lower: storage
+  ip_subnet: '{{storage_subnet}}'
+  allocation_pools: [{'start': '{{storage_pool_start}}', 'end': '{{storage_pool_end}}'}]
+
+- name: StorageMgmt
+  name_lower: storage_mgmt
+  vip: true
+  vlan: {{storage_mgmt_vlan_id}}
+  ip_subnet: '{{storage_mgmt_subnet}}'
+  allocation_pools: [{'start': '{{storage_mgmt_pool_start}}', 'end': '{{storage_mgmt_pool_end}}'}]
+
+{% if glance_backend == "file" -%}
+- name: StorageNfs
+  name_lower: storage_nfs
+  enabled: {{ true if glance_backend == "file" else false}}
+  vip: false
+  vlan: {{storage_nfs_vlan_id}}
+  ip_subnet: '{{storage_nfs_subnet}}'
+  allocation_pools: [{'start': '{{storage_nfs_pool_start}}', 'end': '{{storage_nfs_pool_end}}'}]
+{% endif -%}
+
+{% elif os_release == "wallaby" %}
+- name: Storage
+  name_lower: storage
+  dns_domain: storage.localdomain.
+  vip: true
+  mtu: 9000
+  subnets:
+    storage_subnet:
+      ip_subnet: '{{ storage_subnet }}'
+      allocation_pools:
+        - start: '{{ storage_pool_start}}'
+          end: '{{ storage_pool_end }}'
+      vlan: {{storage_vlan_id}}
+
+- name: StorageMgmt
+  name_lower: storage_mgmt
+  dns_domain: storagemgmt.localdomain.
+  vip: true
+  mtu: 9000
+  subnets:
+    storage_mgmt_subnet:
+      ip_subnet: '{{storage_mgmt_subnet}}'
+      allocation_pools:
+        - start: '{{storage_mgmt_pool_start}}'
+          end: '{{storage_mgmt_pool_end}}'
+      vlan: {{storage_mgmt_vlan_id}}
+
+- name: InternalApi
+  name_lower: internal_api
+  dns_domain: internalapi.localdomain.
+  vip: true
+  mtu: 9000
+  {% if internal_api_ipv6_subnet is not defined %}
+  subnets:
+    internal_api_subnet:
+      ip_subnet: '{{internal_api_subnet}}'
+      allocation_pools:
+        - start: '{{internal_api_pool_start}}'
+          end: '{{internal_api_pool_end}}'
+  {% else %}
+  subnets:
+    internal_api_subnet:
+      ip_subnet: '{{internal_api_ipv6_subnet}}'
+      allocation_pools: 
+        - start: '{{internal_api_ipv6_start}}'
+          end : '{{internal_api_ipv6_end}}'
+  {% endif %}
+      vlan: {{internal_api_vlan_id}}
+
+- name: Tenant
+  vip: false  # Tenant network does not use VIPs
+  mtu: 9000
+  name_lower: tenant
+  dns_domain: tenant.localdomain.
+  subnets:
+    tenant_subnet:
+      ip_subnet: '{{tenant_subnet}}'
+      allocation_pools:
+        - start: '{{tenant_pool_start}}'
+          end: '{{tenant_pool_end}}'
+      vlan: {{tenant_vlan_id}}
+
+- name: External
+  name_lower: external
+  dns_domain: external.localdomain.
+  vip: true
+  mtu: 1500
+  {% if external_ipv6_subnet is not defined %}
+  subnets:
+    external_subnet:
+      ip_subnet: '{{external_subnet}}'
+      allocation_pools:
+        - start: '{{external_pool_start}}'
+          end: '{{external_pool_end}}'
+      gateway_ip: '{{external_default_gateway}}'
+  {% else %}
+  subnets:
+    external_subnet:
+      ip_subnet: '{{external_ipv6_subnet}}'
+      allocation_pools:
+        - start: '{{external_ipv6_start}}'
+          end: '{{external_ipv6_end}}'
+      gateway_ipv6: '{{external_ipv6_gateway}}'
+  {% endif %}
+      vlan: {{external_vlan_id}}
+
+{% if glance_backend == "file" -%}
+- name: StorageNFS
+  name_lower: storage_nfs
+  dns_domain: storagenfs.localdomain.
+  vip: false
+  mtu: 9000
+  {# #enabled: {{ true if glance_backend == "file" else false}} # check if needed #}
+  subnets:
+    storage_nfs_subnet:
+      ip_subnet: '{{storage_nfs_subnet}}'
+      allocation_pools:
+        - start: '{{storage_nfs_pool_start}}'
+          end: '{{storage_nfs_pool_end}}'
+      vlan: {{storage_nfs_vlan_id}}
+{% endif -%}
+
+{% endif %}

@@ -1,0 +1,48 @@
+---
+  - name: Gathering nova.conf settings
+    shell: grep -Ev '^$|^#|vif_plugging_timeout' {{ item.file }} | grep -w {{ item.setting }}
+    loop: '{{ nova_settings }}'
+    register: gather_result
+    ignore_errors: yes
+
+  - name: Adding gathered settings to nova_results list
+    set_fact:
+      nova_results: "{{(nova_results + item.stdout.split(',')) | regex_replace(' ','') }}"
+    loop: "{{gather_result.results}}"
+
+  - name: check nova containers are running train
+    shell:  podman inspect `podman ps|grep -i "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ nova_containers }}"
+    register: gather_container_result
+    ignore_errors: yes
+
+  - name: Adding gathered containers to nova_results list
+    set_fact:
+      nova_results: "{{nova_results + [item.stdout | regex_replace(' ','')] }}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Remove special char (nova_settings compute train)
+    set_fact:
+      nova_results: "{{nova_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\|,)','') | list }}"
+# checking required settings and containers are present
+  - name: Validating nova settings
+    set_fact:
+      expected_results: "{{ nova_check | difference(nova_results) }}"
+  
+  - name: Validating nova settings
+    set_fact:
+      actual_results: "{{ nova_results | difference(nova_check) }}"
+
+  - name: Combine nova results to a dictionary (train)
+    set_fact:
+      nova_settings_results: "{{ nova_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+  
+  - name: Save results
+    include: save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0 

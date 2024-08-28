@@ -1,0 +1,35 @@
+[rhel-7-server-extras-rpms-latest]
+name = Rhel 7 Server Extras
+baseurl = http://10.44.77.158/repo2/rhospall_latest/rhel-7-server-extras-rpms
+gpgcheck = 0
+
+[rhel-7-server-openstack-13-devtools-rpms-latest]
+name = Rhel 7 Server Openstack 13 Devtools
+baseurl = http://10.44.77.158/repo2/rhospall_latest/rhel-7-server-openstack-13-devtools-rpms
+gpgcheck = 0
+
+[rhel-7-server-openstack-13-rpms-latest]
+name = Rhel 7 Server Openstack 13
+baseurl = http://10.44.77.158/repo2/rhospall_latest/rhel-7-server-openstack-13-rpms
+gpgcheck = 0
+
+[rhel-7-server-optional-rpms-latest]
+name = Rhel 7 Server Optional
+baseurl = http://10.44.77.158/repo2/rhospall_latest/rhel-7-server-optional-rpms
+gpgcheck = 0
+
+[rhel-7-server-rpms-latest]
+name = Rhel 7 Server
+baseurl = http://10.44.77.158/repo2/rhospall_latest/rhel-7-server-rpms
+gpgcheck = 0
+
+[rhel-7-server-rh-common-rpms-latest]
+name = Rhel 7 Server Rh Common
+baseurl = http://10.44.77.158/repo2/rhospall_latest/rhel-7-server-rh-common-rpms
+gpgcheck = 0
+
+[rhel-ha-for-rhel-7-server-rpms-latest]
+name = Rhel Ha For Rhel 7 Server
+baseurl = http://10.44.77.158/repo2/rhospall_latest/rhel-ha-for-rhel-7-server-rpms
+gpgcheck = 0
+

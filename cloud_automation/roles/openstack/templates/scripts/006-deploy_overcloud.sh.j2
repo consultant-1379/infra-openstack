@@ -1,0 +1,91 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+#!/bin/bash
+
+# Move to home folder to output the generared files during the deployment there
+cd ~/
+source ~/stackrc
+
+# Not possible to use "--environment-directory" due to https://bugzilla.redhat.com/show_bug.cgi?id=1593077
+
+openstack overcloud deploy \
+    --force-postconfig \
+    --templates {{ openstack_usr_templates_directory }} \
+    --timeout 90 \
+    -n {{ openstack_overcloud_directory }}/network_data.yaml \
+    -r {{ openstack_overcloud_directory }}/roles-data.yaml \
+    {% if os_release == "train" %}
+    -e {{ openstack_overcloud_directory }}/nodes-info.yaml \
+    {% endif %}
+    {% if os_release == "wallaby" %}
+    -e {{ openstack_env_directory }}/overcloud-networks-deployed.yaml \
+    -e {{ openstack_env_directory }}/overcloud-baremetal-deployed.yaml \
+    -e {{ openstack_env_directory }}/overcloud-vip-deployed.yaml \
+    {% endif %}
+    -e {{ openstack_usr_templates_directory }}/environments/debug.yaml \
+    -e {{ openstack_usr_templates_directory }}/environments/sshd-banner.yaml \
+    {% if os_release == "train" %}
+    -e {{ openstack_usr_templates_directory }}/environments/network-isolation.yaml \
+    -e {{ openstack_overcloud_directory }}/ips-from-pool-all.yaml \
+    -e {{ openstack_usr_templates_directory }}/environments/host-config-and-reboot.yaml \
+    {% endif %}
+    {% if os_release == "train" %}
+    -e {{ openstack_usr_templates_directory }}/environments/services/cinder-backup.yaml \
+    {% elif os_release == "wallaby" %}
+    -e {{ openstack_usr_templates_directory }}/environments/cinder-backup.yaml \
+    {% endif %}
+{% if glance_backend == "file" %}
+    -e {{ openstack_usr_templates_directory }}/environments/services/barbican.yaml \
+{% endif %}
+{% if instance_ha %}
+    -e {{ openstack_usr_templates_directory }}/environments/compute-instanceha.yaml \
+{% endif %}
+    -e {{ openstack_usr_templates_directory }}/environments/barbican-backend-simple-crypto.yaml \
+    -e {{ openstack_usr_templates_directory }}/environments/disable-telemetry.yaml \
+{% if os_release == "train" %}
+    -e {{ openstack_usr_templates_directory }}/environments/services/neutron-ovs.yaml \
+    -e {{ openstack_usr_templates_directory }}/environments/docker-ha.yaml \
+    -e {{ openstack_overcloud_directory }}/containers-prepare-parameter.yaml \
+{% endif %}
+{% if os_release == "wallaby" %}
+{% if use_ovn == "false"%}
+    -e {{ openstack_usr_templates_directory }}/environments/services/neutron-ovs.yaml \
+{% else %}
+    -e {{ openstack_usr_templates_directory }}/environments/services/neutron-ovn-ha.yaml \
+{% endif %}
+    -e {{ openstack_usr_templates_directory }}/environments/docker-ha.yaml \
+    -e {{ stack_home }}/containers-prepare-parameter.yaml \
+{% endif %}
+    -e {{openstack_env_directory}}/05-ssl-ca-cert.yaml \
+    -e {{openstack_env_directory}}/05-ssl-tls-cert.yaml \
+    -e {{openstack_env_directory}}/05-endpoints-public-dns.yaml \
+    -e {{openstack_env_directory}}/10-commons-parameters.yaml \
+    -e {{openstack_env_directory}}/20-network-environment.yaml \
+{% if os_release == "wallaby" %}
+    -e {{openstack_env_directory}}/21-vip-env.yaml \
+{% endif %}
+{% if san_type == 'unity' or san_type == 'vnx' %}
+    -e {{openstack_env_directory}}/30-unity-storage-environment.yaml \
+{% elif san_type == '3par' %}
+    -e {{openstack_env_directory}}/30-3par-storage-environment.yaml \
+{% elif san_type == 'ceph' %}
+    -e {{openstack_env_directory}}/30-ceph-storage-environment.yaml \
+{% elif san_type == 'flexos' %}
+    -e {{openstack_env_directory}}/30-flexos-storage-environment.yaml \
+{% else %}
+{# empty else clause #}
+{% endif %}
+{% if glance_backend == "file" and san_type != "ceph" %}
+    -e {{openstack_env_directory}}/30-nfs-storage-environment.yaml \
+{% endif %}
+    -e {{openstack_env_directory}}/40-fencing.yaml \
+    -e {{openstack_env_directory}}/50-keystone-admin-endpoint.yaml \
+    -e {{openstack_env_directory}}/60-openstack-neutron-custom-configs.yaml \
+    -e {{openstack_env_directory}}/65-openstack-nova-custom-configs.yaml \
+{% if san_type == 'flexos' %}
+    -e {{openstack_env_directory}}/66-flexos-storage-environment.yaml \
+{% endif %}
+    -e {{openstack_env_directory}}/70-standard-performance.yaml \
+    -e {{openstack_env_directory}}/70-high-performance.yaml \
+    -e {{openstack_env_directory}}/99-extraconfig.yaml
+
+exit $?

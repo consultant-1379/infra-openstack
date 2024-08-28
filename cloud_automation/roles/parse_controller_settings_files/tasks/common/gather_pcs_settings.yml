@@ -1,0 +1,9 @@
+---
+  - include: gather_rabbitmq_settings.yml
+    tags: gather_rabbitmq_settings
+  - include: gather_galera_settings.yml
+    tags: gather_galera_settings
+  - include: gather_redis_settings.yml
+    tags: gather_redis_settings
+  - include: gather_pcsd_cluster_settings.yml
+    tags: gather_pcsd_cluster_settings

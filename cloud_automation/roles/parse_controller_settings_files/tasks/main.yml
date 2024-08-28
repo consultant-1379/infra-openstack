@@ -1,0 +1,50 @@
+---
+  - block:
+    - name: Creates directory
+      file:
+        path: "{{ settings_store_path }}"
+        state: directory
+        mode: 0777
+      run_once: yes
+
+    - name: checking if san_type is vnx
+      shell: "grep -Ev '^$|^#' ../redhat/{{cloud}}/{{cloud}}.yml | grep san_type | grep -o vnx"
+      register: san_type
+    connection: local
+    become: no
+    ignore_errors: yes
+    tags:
+      - gather_nova_settings_queens
+      - gather_cinder_settings_queens
+      - gather_keystone_settings_queens
+      - gather_heat_settings_queens
+      - gather_glance_settings_queens
+      - gather_neutron_settings_queens
+      - gather_swift_settings_queens
+      - gather_haproxy_settings_queens
+      - gather_mysql_settings_queens
+      - gather_horizon_settings_queens
+      - gather_cinder_backup_volume_queens
+      - gather_pcs_settings_queens
+      - gather_nova_settings_train
+      - gather_cinder_settings_train
+      - gather_keystone_settings_train
+      - gather_heat_settings_train
+      - gather_glance_settings_train
+      - gather_neutron_settings_train
+      - gather_swift_settings_train
+      - gather_haproxy_settings_train
+      - gather_mysql_settings_train
+      - gather_horizon_settings_train
+      - gather_cinder_backup_volume_train
+      - gather_pcs_settings_train
+      - queens
+      - train
+
+  - include: queens/main.yaml
+    when: os_release == 'queens'
+    tags: queens
+
+  - include: train/main.yaml
+    when: os_release == 'train'
+    tags: train

@@ -1,0 +1,37 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  tasks:
+    - name: Deploy OpenStack provider networks
+      os_network:
+        name: "{{network.name}}"
+        provider_network_type: vlan
+        provider_physical_network: datacentre
+        provider_segmentation_id: "{{network.vlan}}"
+        mtu: "{{network.mtu|default(1500)}}"
+        shared: '{{network.shared | default("yes")}}'
+        project: '{{network.project | default("admin")}}'
+        admin_state_up: true
+        state: present
+        external: '{{network.external}}'
+      loop: "{{networks}}"
+      loop_control:
+        loop_var: network
+        label: "{{network.name}}" 
+    - name: Deploy OpenStack provider subnets
+      os_subnet:
+        name: '{{subnet.name}}'
+        network_name: '{{subnet.network}}'
+        cidr: '{{subnet.cidr}}'
+        allocation_pool_start: '{{subnet.start}}'
+        allocation_pool_end: '{{subnet.end}}'
+        dns_nameservers: '{{ subnet.dns_nameservers }}'
+        ip_version: '{{subnet.ip_version|default(4)}}'
+        gateway_ip: '{{subnet.gateway_ip}}'
+        enable_dhcp: '{{subnet.enable_dhcp}}'
+        state: present
+      loop: "{{subnets}}"
+      loop_control:
+        loop_var: subnet
+        label: "{{subnet.name}}"

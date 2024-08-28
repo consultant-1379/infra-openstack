@@ -1,0 +1,59 @@
+---
+  - name: Validate resolv.conf file.
+    shell: cat /etc/resolv.conf | grep nameserver
+    register: server_present
+    ignore_errors: yes
+
+  - name: Adding gathered settings to dns_conf_results list
+    set_fact:
+      dns_conf_results: "{{dns_conf_results + [item]}}"
+    loop: "{{server_present.stdout_lines}}"
+
+  - name: Validate FQDN.
+    shell: nslookup "{{FQDN}}" | tail -3
+    register: results
+    ignore_errors: yes
+
+  - name: Adding gathered settings to dns_conf_results list
+    set_fact:
+      dns_conf_results: "{{dns_conf_results + [item]}}"
+    loop: "{{results.stdout_lines}}"
+
+# checking required settings are present
+  - name: Validating dns settings
+    set_fact:
+      expected_results: "{{dns_conf_check | difference(dns_conf_results) }}"
+  - name: Validating dns settings
+    set_fact:
+      actual_results: "{{dns_conf_results | difference(dns_conf_check) }}"
+
+  - name: Combine dns results to a dictionary
+    set_fact:
+      dns_setting_results: "{{ dns_setting_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+# add error result to a file if there is an error
+  - block:
+    - name:  add section heading
+      shell: |
+         echo "
+         ****DNS configuration section******" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+  
+    - shell: echo "[EXPECTED_RESULTS:]" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+      loop: "{{expected_results}}"
+
+    - shell: echo "[ACTUAL_RESULTS:]" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+      loop: "{{actual_results}}"
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - set_fact:
+      expected_results: []
+      actual_results: []

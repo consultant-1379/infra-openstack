@@ -1,0 +1,99 @@
+---
+- hosts: director
+  gather_facts: no
+  vars:
+    automation_user: awx
+    ssh_vars:
+      ansible_ssh_common_args: "-o ProxyJump=awx@{{ansible_host}} -o StrictHostKeyChecking=no"
+      ansible_ssh_user: awx
+    groups_to_include:
+      - Compute
+      - ComputeHP
+      - nova_compute
+      - Controller
+      - overcloud_Compute
+      - overcloud_Controller
+      - overcloud
+  tasks:
+    - name: Create a temporary directory on AWX
+      tempfile:
+        state: directory
+      register: temp_dir
+      delegate_to: localhost
+
+    - name: Get inventory file from the director
+      slurp:
+        path: /home/stack/ansible/inventory.yaml
+      register: cloud_inventory
+
+    - name: Get content from inventory file
+      set_fact:
+         content: '{{ cloud_inventory["content"]|b64decode |from_yaml }}'
+      delegate_to: localhost
+
+    - name: Add SSH common args to inventory
+      set_fact:
+        content: '{{ content | combine(item,recursive=True) }}'
+      when:  item.keys() | list | first in content
+      loop_control:
+         label: '{{ item.keys() | list | first }}'
+      loop:
+        - Compute:
+            vars: '{{ ssh_vars }}'
+        - ComputeHP:
+            vars: '{{ ssh_vars }}'
+        - nova_compute:
+            vars: '{{ ssh_vars }}'
+        - Controller:
+            vars: '{{ ssh_vars }}'
+        - overcloud_Compute:
+            vars: '{{ ssh_vars }}'
+        - overcloud_Controller:
+            vars: '{{ ssh_vars }}'
+        - overcloud:
+            vars: '{{ ssh_vars }}'
+      delegate_to: localhost
+
+    - name: Write inventory to a temporary file
+      copy:
+        content: '{{ content| remove_all_keys_except(groups_to_include) | to_yaml }}'
+        dest: '{{temp_dir.path}}/inventory.yml'
+      delegate_to: localhost
+
+    - name: Import inventory to AWX
+      command: 'awx-manage inventory_import --source={{temp_dir.path}}/inventory.yml --inventory-name={{tower_inventory_name}} --overwrite'
+      delegate_to: localhost
+
+    - name: Configure awx access to the compute and controller nodes
+      block:
+        - name: Create a temporary directory on the director
+          tempfile:
+            state: directory
+          register: director_temp
+
+        - name: Copy user configuration playbook and public key to the director
+          copy:
+            src: '{{item}}'
+            dest: '{{director_temp.path}}'
+          loop:
+            - config_automation_user.yml
+            - awx_ssh.pub
+
+        - name: Run user configuration playbook to the director
+          shell: 'ansible-playbook -i /home/stack/ansible/inventory.yaml -e keyfile=awx_ssh.pub config_automation_user.yml'
+          args:
+            chdir: '{{director_temp.path}}'
+
+        - name: Cleanup tmp files on the director
+          file:
+            path: '{{director_temp.path}}'
+            state: absent
+      tags:
+        - user_config
+
+    - name: Cleanup tmp files on AWX
+      file:
+        path: '{{temp_dir.path}}'
+        state: absent
+      delegate_to: localhost
+

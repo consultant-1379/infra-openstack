@@ -1,0 +1,72 @@
+---
+  - name: gathering neutron.conf settings
+    shell: grep -Ev '^$|^#' {{ item.file }} | grep {{ item.setting }} | grep -v "{{ neutron_unwanted_settings }}"
+    loop: '{{ neutron_settings }}'
+    register: gather_result
+    ignore_errors: true
+
+  - name: check neutron containers are running
+    shell:  docker inspect `docker ps|grep -i "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ neutron_containers }}"
+    register: gather_container_result
+
+  - name: Save neutron docker container results
+    set_fact:
+      neutron_results: "{{neutron_results + [item.stdout| regex_replace(' ','')]}}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Save neutron conf results
+    set_fact:
+      temp_neutron: "{{(temp_neutron + item.stdout.split('\n')) | regex_replace(' ','')}}"
+    loop: "{{gather_result.results}}"
+  
+  - name: Combine all results neutron
+    set_fact:
+      neutron_results: "{{neutron_results + (temp_neutron|flatten)}}"
+
+  - name: Remove special char (neutron_settings)
+    set_fact:
+      neutron_results: "{{neutron_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Split memcache server results
+    set_fact:
+      neutron_results: "{{(neutron_results + item.split(','))|reject('search', item) | list}}"
+    loop: "{{neutron_results}}"
+    when: "'cloud' in item"
+
+  - name: Remove trailing chars (neutron_settings)
+    set_fact:
+      neutron_results: "{{neutron_results | map('replace', ',' ,'') | list}}"
+
+  - name: Set neutron results var
+    set_fact:
+      neutron_results: "{{ (neutron_results + [item|regex_replace('^.*-(.*)-','\\1')]) |reject('search', item) | list}}"
+    loop: "{{neutron_results}}"
+    when: "'cloud' in item"
+
+  - block:
+    - name: Removing white spaces
+      set_fact:
+        results: "{{(neutron_check + neutron_check_queens)  | regex_replace(' ','')}}"
+
+    - name: Validating neutron settings
+      set_fact:
+        expected_results: "{{results| difference(neutron_results)}}"
+
+    - name: Validating neutron settings
+      set_fact:
+        actual_results: "{{neutron_results| difference(results)}}"
+
+  - name: Combine controller neutron results to a dictionary (queens)
+    set_fact:
+      neutron_settings_results: "{{ neutron_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: neutron
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

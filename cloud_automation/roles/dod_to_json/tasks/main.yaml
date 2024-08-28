@@ -1,0 +1,147 @@
+---
+- block:
+    - name: Add cloud name
+      set_fact:
+        dod_results: "{{dod_results | default({'cloud_name': cloud })}}"
+
+    - name: Add nova settings to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'nova_settings':hostvars[item]['nova_settings_results']}, recursive=True) }}"
+      loop: "{{groups['overcloud']}}"
+      when: hostvars[item]['nova_settings_results'] is defined
+
+    - name: Add linux services results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'linux_services_results':hostvars[item]['linux_services_results']}, recursive=True) }}"
+      loop: "{{groups['overcloud']}}"
+      when: hostvars[item]['linux_services_results'] is defined
+
+    - name: Add cinder settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'cinder_settings_results':hostvars[item]['cinder_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['cinder_settings_results'] is defined
+
+    - name: Add glance settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'glance_settings_results':hostvars[item]['glance_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['glance_settings_results'] is defined
+
+    - name: Add haproxy settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'haproxy_settings_results':hostvars[item]['haproxy_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['haproxy_settings_results'] is defined
+
+    - name: Add heat settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'heat_settings_results':hostvars[item]['heat_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['heat_settings_results'] is defined
+
+    - name: Add keystone settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'keystone_settings_results':hostvars[item]['keystone_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['keystone_settings_results'] is defined
+
+    - name: Add mysql settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'mysql_settings_results':hostvars[item]['mysql_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['mysql_settings_results'] is defined
+
+    - name: Add neutron settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'neutron_settings_results':hostvars[item]['neutron_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['neutron_settings_results'] is defined
+
+    - name: Add swift settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'swift_settings_results':hostvars[item]['swift_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['swift_settings_results'] is defined
+
+    - name: Add horizon settings results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'horizon_settings_results':hostvars[item]['horizon_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['horizon_settings_results'] is defined
+
+    - name: Add cinder backup volume results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'cinder_backup_results':hostvars[item]['cinder_backup_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['cinder_backup_results'] is defined
+
+    - name: Add pcsd cluster setting results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'pcsd_cluster_setting_results':hostvars[item]['pcsd_cluster_setting_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['pcsd_cluster_setting_results'] is defined
+
+    - name: Add galera setting results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'galera_settings_results':hostvars[item]['galera_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['galera_settings_results'] is defined
+
+    - name: Add rabbitmq setting results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'rabbitmq_settings_results':hostvars[item]['rabbitmq_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['rabbitmq_settings_results'] is defined
+
+    - name: Add redis setting results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'redis_settings_results':hostvars[item]['redis_settings_results']}, recursive=True) }}"
+      loop: "{{ groups['Controller'] }}"
+      when: hostvars[item]['redis_settings_results'] is defined
+
+    - name: Add Disk usage results to json
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'node_disk_space':hostvars[item]['node_disk_space']}, recursive=True) }}"
+      loop:  "{{groups['overcloud']}}"
+      when: hostvars[item]['node_disk_space'] is defined
+
+    - name: Add DNS results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'dns_setting_results':hostvars[item]['dns_setting_results']}, recursive=True) }}"
+      loop: "{{groups['overcloud']}}"
+      when: hostvars[item]['dns_setting_results'] is defined
+
+    - name: Add Chrony results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'chrony_setting_results':hostvars[item]['chrony_setting_results']}, recursive=True) }}"
+      loop: "{{groups['overcloud']}}"
+      when: hostvars[item]['chrony_setting_results'] is defined
+
+    - name: Add NTP results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'ntp_setting_results':hostvars[item]['ntp_setting_results']}, recursive=True) }}"
+      loop: "{{groups['overcloud']}}"
+      when: hostvars[item]['ntp_setting_results'] is defined
+
+    - name: Add network results to json output
+      set_fact:
+        dod_results: "{{dod_results | default({})| combine({'networking_results':networking_results.results}, recursive=True) }}"
+      when: networking_results is defined and networking_results.rc == 0
+
+    - name: Create json file
+      copy:
+        content: "{{dod_results}}"
+        dest: "{{dod_json_path}}{{cloud}}.json"
+        force: yes
+      ignore_errors: yes
+      when: dod_results is defined
+
+    - name: Send dod results to meteo
+      uri:
+        url: https://meteo.athtem.eei.ericsson.se/typhoon/save-dod-results/
+        method: POST
+        src: "{{dod_json_path}}{{cloud}}.json"
+        status_code: 204
+
+  tags: [save_to_json, queens, train]

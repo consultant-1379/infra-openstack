@@ -1,0 +1,69 @@
+---
+  - name: gathering heat.conf settings
+    shell: grep -Ev '^$|^#' {{ heat_settings.file }} | grep {{ item }}
+    loop: '{{ heat_settings.setting }}'
+    register: gather_result
+    ignore_errors: true
+
+  - name: check heat containers are running
+    shell:  docker inspect `docker ps|grep -io "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ heat_containers }}"
+    register: gather_container_result
+    ignore_errors: true
+
+  - name: Add values to heat_results var
+    set_fact:
+      heat_results: "{{heat_results + [item.stdout| regex_replace(' ','')]}}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Save heat conf results
+    set_fact:
+      heat_results: "{{ (heat_results + item.stdout.split('\n'))|regex_replace(' ','')}}"
+    loop: "{{gather_result.results}}"
+
+  - name: Remove special char (heat_settings)
+    set_fact:
+      heat_results: "{{heat_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Split memcache server results
+    set_fact:
+      heat_results: "{{(heat_results + item.split(','))|reject('search', item) | list}}"
+    loop: "{{heat_results}}"
+    when: "'cloud' in item"
+ 
+  - name: Set heat results var
+    set_fact:
+      heat_results: "{{ (heat_results + [item|regex_replace('^.*-(.*)-','\\1')]) |reject('search', item) | list}}"
+    loop: "{{heat_results}}"
+    when: "'cloud' in item"
+
+  - name: Remove trailing chars (heat_settings)
+    set_fact:
+      heat_results: "{{heat_results | map('replace', ',' ,'') | list}}"
+
+  - block:
+    - name: Removing white spaces
+      set_fact:
+        results: "{{(heat_check + heat_check_queens)  | regex_replace(' ','')}}"
+
+    - name: Validating heat settings
+      set_fact:
+        expected_results: "{{results| difference(heat_results)}}"
+
+    - name: Validating heat settings
+      set_fact:
+        actual_results: "{{heat_results| difference(results)}}"
+
+  - name: Combine controller heat results to a dictionary (queens)
+    set_fact:
+      heat_settings_results: "{{ heat_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: heat
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

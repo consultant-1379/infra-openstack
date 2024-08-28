@@ -1,0 +1,75 @@
+---
+- hosts: Controller
+  gather_facts: false
+  become: yes
+  serial: 1
+  tags: controller
+  vars_files: controller_vars.yaml
+  
+  tasks:
+    - include: playbooks/set_nova_metadata_controller.yaml
+      tags: set_nova_metadata
+    
+    # query raised with redhat regarding if still a bug in 17.1
+    - include: playbooks/update_nova_controller_rpc_conn.yml
+      tags: train_update_nova
+
+    # replaced by oslo::messaging::default:executor_thread_pool_size: 200 in cloud_automation/roles/openstack/templates/environments/99-extraconfig.yaml.j2
+    #- include: playbooks/update_executor_pool_size.yml
+    #  tags: update_executor
+
+    # Deprecated replaced by connection_recycle_time=3600
+    #- include: playbooks/update_idle_timeout.yaml
+    #  tags: update_idle_timeout
+
+    - include: playbooks/add_new_ca.yml
+      tags: add_new_ca
+
+    # horizon::dropdown_max_items: 200 to cloud_automation/roles/openstack/templates/environments/99-extraconfig.yaml.j2
+    #- include: playbooks/horizon_dropdownitems.yaml
+    #  tags: horizon_dropdownitems
+
+    - include: playbooks/memcache-limit.yaml
+      tags: memcache_limit
+    
+    # Add horizon::dropdown_max_items: 200 to cloud_automation/roles/openstack/templates/environments/99-extraconfig.yaml.j2
+    #- include: playbooks/mtu_internal_network.yml
+    #  tags: mtu_internal_network
+    
+    - include: playbooks/mysql_tuning.yml
+      tags: mysql_tuning
+    
+    - include: playbooks/pcp-setup-control.yml
+      tags: pcp_setup
+    
+    - include: playbooks/policy.yml
+      tags: policy
+    
+    - include: playbooks/service-tokens-enable-controller.yml
+      tags: tokens_controller
+    
+    # power_wait now added to yamls, not possible to add pcmk_reboot_timeout to yaml
+    - include: playbooks/stonith-power-wait.yml
+      tags: stonith
+
+    # included in yamls
+    #- include: playbooks/update_vm_min_free_kbytes.yml
+    #  tags: min_free_kbytes
+
+    # only partially required as default type is set in yamls
+    - include: playbooks/create_powerflex_compressed_vol_type.yml
+      tags: powerflex_compressed_type
+
+    - include: playbooks/restart_services.yaml
+      tags: restart_services
+
+    - name: Create stackcentric user
+      include: playbooks/create_stackcentric_user.yml
+      delegate_to: localhost
+      tags: create_stackcentric_use
+
+    - name: Create openstack roles
+      shell: source ~/overcloudrc; openstack role create reset_role; openstack role create heat_stack_owner; openstack role list
+      become: no
+      delegate_to: localhost
+      tags: openstack_roles

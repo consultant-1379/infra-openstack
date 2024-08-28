@@ -1,0 +1,34 @@
+#!/bin/bash
+# source common functions
+. common.bsh
+CONTAINER_VERSION=16.1.3-1
+RH_DOCKER_REGISTRY=registry.connect.redhat.com
+DOCKER_REGISTRY_IP={{ director_ctlplane_ip }}
+CONTAINER_NAME=dellemc/openstack-cinder-volume-dellemc-rhosp16
+
+info "Upload and update Dell-EMC Unity docker image"
+
+info "Logging in to ${RH_DOCKER_REGISTRY} using service account {{ registry_username }}"
+sudo podman login -u '{{ registry_username }}' -p '{{ registry_password }}' ${RH_DOCKER_REGISTRY}
+
+info "Downloading the ${CONTAINER_NAME}:${CONTAINER_VERSION}  docker image."
+sudo podman pull ${RH_DOCKER_REGISTRY}/${CONTAINER_NAME}:${CONTAINER_VERSION} || abort "Error downloading the ${CONTAINER_NAME}:${CONTAINER_VERSION}  docker image."
+
+info "Checking the PCS/Pacemaker version in ${CONTAINER_NAME}:${CONTAINER_VERSION} matches the deployment"
+# nothing special about mariadb. container image used must be a container which is pacemaker controlled.
+mariadb_image=$(sudo podman images | awk '/mariadb/{printf "%s:%s", $1,$2}')
+cinder_image=$(sudo podman images | awk '/cinder/{printf "%s:%s", $1,$2}')
+pcs_version_mariadb=$(sudo podman run --rm --net=host -it ${mariadb_image} rpm -q pcs --queryformat='%{VERSION}' )
+pcs_version_cinder=$(sudo podman run --rm --net=host -it ${cinder_image} rpm -q pcs --queryformat='%{VERSION}')
+if [ "${pcs_version_cinder}" != "${pcs_version_mariadb}" ]; then
+    warn "The PCS version in ${CONTAINER_NAME}:${CONTAINER_VERSION} is ${pcs_version_cinder}. This does not match PCS version ${pcs_version_mariadb} in the rest of the deployment."
+    warn "This can cause failures during the overcloud deployment in the step where cinder is added to the PCS configuration."
+    warn "If this occurs, check ${RH_DOCKER_REGISTRY} for a newer version of the ${CONTAINER_NAME} image."
+fi
+
+info "Pushing the ${CONTAINER_NAME} docker image to the local docker registry ${DOCKER_REGISTRY_IP}:8787 and tagging it as latest"
+sudo podman tag $(sudo podman images ${RH_DOCKER_REGISTRY}/${CONTAINER_NAME} -q) ${RH_DOCKER_REGISTRY}/${CONTAINER_NAME}:latest
+# overcloud deployment expects the image to be tagged latest and will retag it as pcmklatest
+sudo openstack tripleo container image push --local ${RH_DOCKER_REGISTRY}/${CONTAINER_NAME}:latest || abort "Error pushing docker image to the local registry ${DOCKER_REGISTRY_IP}:8787"
+
+exit $?

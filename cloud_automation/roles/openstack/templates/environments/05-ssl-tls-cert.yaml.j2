@@ -1,0 +1,25 @@
+# Use this environment to pass in certificates for SSL deployments.
+# For these values to take effect, one of the tls-endpoints-*.yaml environments
+# must also be used.
+parameter_defaults:
+{% if os_release == "train" %}
+  HorizonSecureCookies: True
+
+  # Specifies the default CA cert to use if TLS is used for services in the internal network.
+  # Type: string
+  # We don't use TLS for internal api endpoints but the overcloud fails to deploy
+  # if it is not set to ''.
+  InternalTLSCAFile: ''
+{% endif %}
+  SSLCertificate: |
+    {{ ssl_cert_content| indent(width=4) }}
+    {{ intermediate_ca_cert_content | indent(width=4) }}
+  SSLKey: |
+    {{ ssl_cert_private_key_content| indent(width=4) }}
+
+  DeployedSSLCertificatePath: /etc/pki/tls/private/overcloud_endpoint.pem
+{% if os_release == "queens" %}
+{# This is not needed/deprecated in Train #}
+resource_registry:
+  OS::TripleO::NodeTLSData: {{openstack_templates_directory}}/puppet/extraconfig/tls/tls-cert-inject.yaml
+{% endif %}

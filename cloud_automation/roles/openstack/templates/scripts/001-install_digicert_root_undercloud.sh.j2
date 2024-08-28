@@ -1,0 +1,11 @@
+#!/bin/bash
+# source common functions
+. common.bsh
+
+info "Appending the root and intermediate CA certificates to /etc/pki/ca-trust/source/anchors/ca.crt.pem"
+cat {{cloud_directory}}/ssl/DigiCert_Global_Root_CA.cer  {{cloud_directory}}/ssl/DigiCertSHA2SecureServerCA.cer   {{cloud_directory}}/ssl/DigiCert_SHA256_IntermediateCA.cer  {{cloud_directory}}/ssl/DigiCert_Global_Root_G2_CA.cer {{cloud_directory}}/ssl/DigiCert_Global_G2_TLS_RSA_SHA256_2020_CA1.cer |sudo tee -a /etc/pki/ca-trust/source/anchors/ca.crt.pem || abort "Error updating /etc/pki/ca-trust/source/anchors/ca.crt.pem"
+
+info "Updating the trusted CA certificates"
+sudo update-ca-trust extract || abort "Error updating the trusted CA certificates."
+
+exit $?

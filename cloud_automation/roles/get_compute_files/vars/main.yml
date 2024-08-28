@@ -1,0 +1,7 @@
+---
+# vars file for get_files
+store_path: /var/tmp/record_of_settings/compute/
+
+compute_files:
+  - /var/lib/config-data/puppet-generated/nova_libvirt/etc/nova/nova.conf
+#  - /var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf

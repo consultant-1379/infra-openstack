@@ -1,0 +1,9 @@
+---
+os_release: queens
+# Name of the storage pool to create on the VNX/Unity
+
+san_ip: 10.224.53.206
+san_user: unitycinder
+san_password: "{{unity_password}}"
+# SAN protocol: iSCSI or FC
+san_protocol: iSCSI

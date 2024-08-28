@@ -1,0 +1,23 @@
+---
+  - name: Getting total memory
+    shell: free -g | awk '/Mem/{print $2}'
+    register: total_memory
+    ignore_errors: true
+
+  - name: Combine mysql results
+    set_fact:
+      mysql_results: "{{mysql_results +[item.stdout]}}"
+    loop: "{{gather_result.results}}"
+
+  - name: Checking innodb_buffer_pool_size.
+    set_fact:
+      innodb_buffer: "{{item}}"
+    loop: "{{mysql_results}}"
+    when:
+      "'innodb_buffer_pool_size' in item and
+      item[:-1]|regex_replace('innodb_buffer_pool_size = ','')|int > max_buffer_size or
+      item[:-1]|regex_replace('innodb_buffer_pool_size = ','')|int > ((total_memory.stdout|float) * per_cent_of_total_memory)|round|int"
+
+  - name: Remove innodb_buffer from the list
+    set_fact:
+      mysql_results: "{{mysql_results|reject('search', 'innodb_buffer')|list}}"

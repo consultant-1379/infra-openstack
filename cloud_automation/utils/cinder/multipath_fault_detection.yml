@@ -1,0 +1,41 @@
+---
+- hosts: overcloud
+  gather_facts: False
+  become: yes
+  vars:
+    cloud: '{{ tower_inventory_name | regex_replace("cloud","") }}'
+  tasks:
+  - name: Copy infra_faulty_device_cleanup script to overcloud nodes
+    copy:
+      src: infra_faulty_device_cleanup.py
+      dest: /var/tmp/
+      mode: 0755
+
+  - name: Run infra_faulty_device_cleanup script on overcloud nodes
+    shell: '/var/tmp/infra_faulty_device_cleanup.py --config-file /var/lib/config-data/{{ nova_path }}/etc/nova/nova.conf --detection-only'
+    vars:
+      nova_path: '{{ "nova_libvirt" if inventory_hostname in groups["Compute"] else "nova" }}'
+    register: multipath_output
+
+  - name: Check results
+    set_fact:
+      failed_hosts: '{{ failed_hosts | default([]) + [item if hostvars[item]["multipath_output"].stdout_lines|select("match",".*Found.*")|list|length > 0 else "" ]}}'
+    loop: '{{ groups["overcloud"] }}'
+    delegate_to: localhost
+    run_once: yes
+
+  - name: Post result to teams
+    mail:
+      subject: "Results from multipath failure detection for Cloud {{cloud}}"
+      sender: infra-awx@ericsson.com (Infra AWX)
+      body: "{{result_msg}}<br /><br />See <a href='{{tower_host}}/#/jobs/playbook/{{tower_job_id}}'>here</a> for more details."
+      subtype: html
+      charset: utf-8
+      to: '764f6be1.ericsson.onmicrosoft.com@emea.teams.ms (DE Openstack Infra - General channel)'
+      host: ieatansible4b
+    vars:
+      result_msg: "{{ 'The following hosts have failed paths and devices: <br />' +  failed_hosts|reject('equalto','')|join(',') if failed_hosts|reject('equalto','')|list|length > 0 else 'There are no hosts with failed paths and devices.' }}"
+      tower_host: "{{ lookup('env','AWX_HOST') }}"
+    run_once: yes
+    delegate_to: localhost
+  

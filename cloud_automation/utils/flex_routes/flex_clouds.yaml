@@ -1,0 +1,61 @@
+---
+flex_groups:
+  - flex_sys_1
+  - flex_sys_2
+  - flex_sys_all
+systems:
+  cloud16b:
+    flex: flex_sys_2 # group from the inventory e.g flex_sys_2
+    storage_networks:
+       - 10.150.38.0/24 # data_A-gateway e.g. 10.10.10.0/24 ens1f0
+       - 10.150.39.0/24 # data_B_gateway e.g. 10.10.11.0/24 ens8f0
+  cloud16c:
+    flex: flex_sys_2
+    storage_networks:
+       - 10.150.47.0/24
+       - 10.150.48.0/24
+  cloud12a:
+    flex: flex_sys_2
+    storage_networks:
+       - 10.150.93.128/26
+       - 10.150.93.192/26
+  cloud13a:
+    flex: flex_sys_1
+    storage_networks:
+       - 10.151.111.192/26
+       - 10.151.109.0/26
+  cloud10a:
+    flex: flex_sys_1
+    storage_networks:
+       - 10.150.133.0/24
+       - 10.150.134.0/24
+  cloud15a:
+    flex: flex_sys_1
+    storage_networks:
+       - 10.150.141.128/25
+       - 10.150.146.0/25
+  cloud7b:
+    flex: flex_sys_1
+    storage_networks:
+       - 10.150.151.128/25
+       - 10.150.152.0/25
+  cloud17a:
+    flex: flex_sys_1
+    storage_networks:
+       - 10.150.201.128/25 
+       - 10.150.203.0/25 
+  bmccd1:
+    flex: flex_sys_2
+    storage_networks:
+       - 10.150.204.0/27
+       - 10.150.204.32/27
+  bmccd2:
+    flex: flex_sys_2
+    storage_networks:
+       - 10.150.204.96/27
+       - 10.150.204.128/27
+  cloud17b:
+    flex: flex_sys_1
+    storage_networks:
+       - 10.150.215.128/25
+       - 10.150.216.0/25

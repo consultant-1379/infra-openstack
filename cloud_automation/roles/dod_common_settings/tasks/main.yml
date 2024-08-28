@@ -1,0 +1,31 @@
+---
+  - name: Creates directory
+    file:
+      path: "{{ settings_store_path }}"
+      state: directory
+      mode: 0777
+    connection: local
+    run_once: yes
+    ignore_errors: yes
+    become: no
+    tags:
+      - compute_and_control_disk_usage
+      - dns_conf_control_compute_nodes
+      - gather_ntp_settings
+      - gather_network_settings
+      - gather_chrony_settings
+      - queens
+      - train
+
+  - include: compute_and_control_disk_usage.yml
+    tags: [compute_and_control_disk_usage, queens, train]
+  - include: dns_conf_control_compute_nodes.yml
+    tags: [dns_conf_control_compute_nodes, queens, train]
+  - include: gather_ntp_settings.yml
+    when: os_release == 'queens'
+    tags: [gather_ntp_settings, queens]
+  - include: gather_network_settings.yml
+    tags: [gather_network_settings, queens, train]
+  - include: gather_chrony_settings.yaml
+    when: os_release == 'train'
+    tags: [gather_chrony_settings, train]

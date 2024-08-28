@@ -1,0 +1,74 @@
+---
+  - include: gather_internal_ips.yaml
+
+  - name: gathering neutron.conf settings
+    shell: grep -Ev '^$|^#' {{ item.file }} | grep {{ item.setting }} | grep -v "{{ neutron_unwanted_settings }}"
+    loop: '{{ neutron_settings }}'
+    register: gather_result
+    ignore_errors: true
+
+  - name: check neutron containers are running
+    shell:  podman inspect `podman ps|grep -i "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ neutron_containers }}"
+    register: gather_container_result
+
+  - name: Save neutron conf results
+    set_fact:
+      temp_neutron: "{{(temp_neutron + item.stdout.split('\n')) | regex_replace(' ','')}}"
+    loop: "{{gather_result.results}}"
+  
+  - name: Flatten array
+    set_fact:
+      neutron_results: "{{neutron_results + (temp_neutron|flatten)}}"
+
+  - name: Remove white spaces (train)
+    set_fact:
+      neutron_results: "{{neutron_results + [item.stdout| regex_replace(' ','')]}}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Remove special char (neutron_settings train)
+    set_fact:
+      neutron_results: "{{neutron_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Update memcache results
+    set_fact:
+      neutron_results: "{{neutron_results + [item| regex_replace('^.*=(.*)$','\\1')]}}"
+    loop: "{{neutron_results}}"
+    when: "'servers' in item"
+
+  - name: Split internal ip address into a list
+    set_fact:
+      neutron_results: "{{(neutron_results + item.split(',')) | reject('search', item) | list}}"
+    loop: "{{neutron_results | select() | list}}"
+    when: item != '' and item[0] | int == 1
+
+  - name: Remove trailing chars (neutron_settings train)
+    set_fact:
+      neutron_results: "{{neutron_results | map('replace', ',' ,'') | list}}"
+
+  - block:
+    - name: Removing white spaces
+      set_fact:
+        results: "{{neutron_check  | regex_replace(' ','')}}"
+
+    - name: Validating neutron settings
+      set_fact:
+        expected_results: "{{(results + memcache_server)| difference(neutron_results)}}"
+
+    - name: Validating neutron settings
+      set_fact:
+        actual_results: "{{neutron_results| difference(results + memcache_server)}}"
+
+  - name: Combine controller neutron results to a dictionary (train)
+    set_fact:
+      neutron_settings_results: "{{ neutron_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: neutron
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

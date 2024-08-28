@@ -1,0 +1,67 @@
+---
+  - name: Gather internal_api_ip
+    set_fact:
+      internal_ip: "{{internal_ip + hostvars[item]['internal_api_ip'] + ':11211,'}}"
+    loop: "{{groups['Controller']}}"
+
+  - name: gathering nova.conf settings
+    shell: grep -Ev '^$|^#' {{ item.file }} | grep -m1 {{ item.setting }}
+    loop: '{{ nova_settings }}'
+    register: gather_result
+    ignore_errors: true
+
+  - name: Change memcache output
+    set_fact:
+      nova_results: "{{nova_results + [item.stdout|regex_replace(' ','')| regex_replace('memcached_servers=','')]}}"
+    loop: "{{gather_result.results}}"
+
+  - name: check nova containers are running
+    shell:  docker inspect `docker ps|grep -i "{{ item }}" | awk '{print $1}'` | grep container_name -m1
+    loop: "{{ nova_containers_queens }}"
+    register: gather_container_result
+    ignore_errors: true
+  
+  - name: Parse nova container results
+    set_fact:
+      nova_results: "{{nova_results + [item.stdout| regex_replace(' ','')] }}"
+    loop: "{{gather_container_result.results}}"
+
+  - name: Removing white spaces
+    set_fact:
+      results: "{{(nova_check +  nova_queens +  internal_ip.split(',')[:-1]) | regex_replace(' ','')}}"
+  
+  - name: Remove special char (nova_settings)
+    set_fact:
+      nova_results: "{{nova_results | map('regex_replace', '(\\[|\\]|\\\"|\\\\)','') | list }}"
+
+  - name: Split internal ip address into a list
+    set_fact:
+      nova_results: "{{(nova_results + item.split(',')) | reject('search', item) | list}}"
+    loop: "{{nova_results}}"
+    when: item != '' and item[0] | int == 1
+
+  - name: Remove trailing chars (nova_settings queens)
+    set_fact:
+      nova_results: "{{nova_results | map('replace', ',' ,'') | list}}"
+
+  - name: Validating nova settings
+    set_fact:
+      expected_results: "{{results | difference(nova_results)}}"
+  
+  - name: Validating nova settings
+    set_fact:
+      actual_results: "{{nova_results | difference(results)}}"
+
+  - name: Combine controller nova results to a dictionary (queens)
+    set_fact:
+      nova_settings_results: "{{ nova_settings_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+  - include: common/save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+      heading: nova
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

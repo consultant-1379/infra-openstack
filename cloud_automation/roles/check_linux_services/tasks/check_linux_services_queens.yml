@@ -1,0 +1,56 @@
+---
+  - name: Check ntpd service is running
+    systemd:
+      name: ntpd
+      state: started
+      enabled: yes
+    check_mode: yes
+    register: started_service_result
+
+  - name: Check firewalld, ksm, ksmtuned service are stopped
+    systemd:
+      name: '{{ service_stop }}'
+      state: stopped
+      enabled: no
+    loop:
+      - firewalld
+      - ksm
+      - ksmtuned
+    loop_control:
+      loop_var: service_stop
+      label: '{{ service_stop }}'
+    check_mode: yes
+    register: stopped_service_result
+
+  - name: Add ntpd results to result list
+    set_fact:
+      services_results: "{{services_results +  [item.name + item.state]}}"
+    loop:
+      - "{{started_service_result}}"
+
+  - name: Add firewalld, ksm, ksmtuned results to result list
+    set_fact:
+      services_results: "{{services_results +  [item.name + item.state]}}"
+    loop: "{{stopped_service_result.results}}"
+
+  - name: Validating services settings
+    set_fact:
+      expected_results: "{{ services_check_queens | difference(services_results) }}"
+
+  - name: Validating services settings
+    set_fact:
+      actual_results: "{{ services_results | difference(services_check_queens) }}"
+
+  - name: Combine linux services results to a dictionary (queens)
+    set_fact:
+      linux_services_results: "{{ linux_services_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - include: save_results.yaml
+    vars:
+      expected: "{{expected_results}}"
+      actual: "{{actual_results}}"
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0

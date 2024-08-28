@@ -1,0 +1,44 @@
+---
+- hosts: Controller
+  gather_facts: no
+  become: yes
+  vars:
+    cloud: '{{ tower_inventory_name }}'
+    cloud_pattern:  '^cloud(\d+[a-z]|env\d+|dev.*)$'
+  pre_tasks:
+    - name: Playbook setup
+      block:
+        - name: Validate Inventory name
+          assert:
+            that: cloud is match(cloud_pattern)
+            fail_msg: >
+              The inventory name must be in the format {{ cloud_pattern }} e.g. cloud15a.
+              The inventory name must match the corresponding redhat/cloudX/ directory.
+
+        - name: "Get SSL/TLS Certificate and key files for {{ cloud }}"
+          find:
+            path: "{{ playbook_dir | dirname }}/redhat/{{ cloud }}"
+            patterns: '{{ cloud }}.*'
+          register: find_tls
+        - name: Set variables for ssl cert and key files
+          set_fact:
+            ssl_cert_file: '{{ find_tls.files | map(attribute="path") |select("match",".*cer")|first }}'
+            ssl_cert_key_file: '{{ find_tls.files | map(attribute="path") |select("match",".*key")|first }}'
+        - name: Get MD5 checksum of the SSL certificate modulus
+          shell: "openssl x509 -noout -in {{ ssl_cert_file }} | openssl md5"
+          register: cert_modulus_md5
+        - name: Get MD5 checksum of the SSL private key modulus
+          shell: "openssl rsa -noout -in {{ ssl_cert_key_file }} | openssl md5"
+          register: key_modulus_md5
+        - name: Check SSL certificate and key match
+          assert:
+            that: cert_modulus_md5.stdout == key_modulus_md5.stdout
+            fail_msg: Certificate and key do not match
+            success_msg: SSL Certificate and Key match
+      run_once: yes
+      delegate_to: localhost
+      tags:
+        - add_cert
+        - rollback_cert
+  roles:
+    - update_certs

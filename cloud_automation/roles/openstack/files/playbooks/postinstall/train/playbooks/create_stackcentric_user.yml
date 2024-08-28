@@ -1,0 +1,10 @@
+---
+  - name: Create Local Linux stackcentric User Account
+    user:
+      name: stackcentric
+      shell: /bin/bash
+      password: '{{ local_password | string }}'
+
+  - name: Create OpenStack stackcentric User and assign admin project and role
+    become: no
+    shell: "source ~/overcloudrc; openstack user create --password {{ os_user_password | string }} --project admin stackcentric; openstack role add --user stackcentric --project admin admin"

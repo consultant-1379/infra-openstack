@@ -1,0 +1,9 @@
+---
+- hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Check for detaching volumes
+      shell: "./check_detaching_volumes.py"
+      register: output
+    - debug:
+        var: output.stderr_lines

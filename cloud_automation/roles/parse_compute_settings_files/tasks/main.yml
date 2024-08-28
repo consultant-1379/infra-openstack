@@ -1,0 +1,19 @@
+---
+  - name: Creates directory
+    file:
+      path: "{{ settings_store_path }}"
+      state: directory
+      mode: 0777
+    connection: local
+    run_once: yes
+    ignore_errors: yes
+    become: no
+    tags: [gather_nova_settings_queens, gather_nova_settings_train, queens, train]
+
+  - include: gather_nova_settings_queens.yml
+    when: os_release == 'queens'
+    tags: [gather_nova_settings_queens, queens]
+  
+  - include: gather_nova_settings_train.yaml
+    when: os_release == 'train'
+    tags: [gather_nova_settings_train, train]

@@ -1,0 +1,183 @@
+- name: Create overcloud directories
+  file:
+    state: directory
+    path: "{{overcloud_dir}}"
+  loop:
+    - "{{openstack_overcloud_directory}}"
+    - "{{openstack_scripts_directory}}"
+    - "{{openstack_templates_directory}}"
+    - "{{openstack_env_directory}}"
+    - "{{openstack_playbooks_directory}}"
+    - "{{openstack_undercloud_directory}}"
+  loop_control:
+    loop_var: overcloud_dir
+    label: "{{overcloud_dir}}"
+
+- name: write instackenv.json
+  template:
+    src: instackenv.json.j2
+    dest: "{{openstack_undercloud_directory}}/instackenv.json"
+  tags:
+    - get_server_info
+  
+
+- name: Copy OpenStack installation scripts to the director
+  copy:
+    src: files/scripts/
+    dest: "{{openstack_scripts_directory}}"
+    mode: 0755
+
+- name: Copy heat templates to /home/stack/templates
+  synchronize:
+    src: /usr/share/openstack-tripleo-heat-templates/
+    dest: "{{openstack_templates_directory}}"
+  delegate_to: director
+
+- name: Update all-nodes.sh validation script to work with fabric routing
+  lineinfile:
+    path: "{{openstack_templates_directory}}/validation-scripts/all-nodes.sh"
+    regexp: ".*PING_CMD -w 10.*"
+    line: "    if $PING_CMD -W 2 -c 5 $IP_ADDR &> /dev/null; then"
+    state: present
+    backup: yes
+    validate: '/bin/bash -n %s'
+  when: os_release == "train"
+
+- name: "Copy {{ericsson_config_dirs|join(',')}} to {{openstack_overcloud_directory}}"
+  copy:
+    src: "{{config_dir}}"
+    dest: "{{openstack_overcloud_directory}}"
+  loop: "{{ericsson_config_dirs}}"
+  loop_control:
+    loop_var: config_dir
+    label: "{{config_dir}}"
+- name: "Create {{openstack_overcloud_directory}}/extraconfig/post-config/scripts/ directory"
+  file:
+    path: "{{openstack_overcloud_directory}}/extraconfig/post-config/scripts/"
+    state: directory
+    
+- name: "Copy heatcache.sh to extraconfig directory"
+  template:
+    src: extraconfig/heatcache.sh.j2
+    dest: "{{openstack_overcloud_directory}}/extraconfig/post-config/scripts/heatcache.sh"
+
+- name: "Copy static environment files to {{openstack_env_directory}}"
+  copy:
+    src: environments/
+    dest: "{{openstack_env_directory}}"
+
+- name: "Copy controller.yaml to extraconfig directory"
+  template:
+    src: extraconfig/controller.yaml.j2
+    dest: "{{openstack_overcloud_directory}}/extraconfig/pre-config/controller.yaml"
+
+- name: Overwrite 05-endpoints-public-dns.yaml (Train only)
+  copy:
+    src: "{{ openstack_env_directory }}/{{ os_release }}-05-endpoints-public-dns.yaml"
+    dest: "{{ openstack_env_directory }}/05-endpoints-public-dns.yaml"
+    remote_src: yes
+    force: yes
+
+- name: Copy the root and intermediate CA certificates
+  copy:
+    src: ssl
+    dest: "{{cloud_directory}}"
+
+- name: Find environment Jinja2 templates
+  find:
+    path: "{{role_path}}/templates/environments"
+#    excludes: '{{ ["*nfs*"] if san_type == "ceph" or san_type == "flexos" or glance_backend != "file" else None }}'
+    excludes: '{{ ["*nfs*"] if san_type == "ceph" or glance_backend != "file" else None }}'
+  register: find_env
+  delegate_to: localhost
+
+- name: Save list of environment files to env_files variable
+  set_fact:
+    env_files: "{{find_env.files|map(attribute='path')|map('regex_replace',role_path + '/templates/environments/','')|list}}"
+
+- name: "Copying environment files to {{openstack_env_directory}}"
+  template:
+    src: "environments/{{envfile}}"
+    dest: "{{openstack_env_directory}}/{{envfile|regex_replace('\\.j2','')}}"
+  loop: "{{env_files}}"
+  loop_control:
+    loop_var: envfile
+    label: "{{envfile}}"
+
+- name: Add proxy configuration for Docker service
+  template:
+    src: docker-http-proxy.conf.j2
+    dest: /etc/systemd/system/docker.service.d/http-proxy.conf
+    mode: 0644
+  become: True
+  when: use_proxy
+  notify: restart_docker
+
+- name: "Create {{extra_templates|map('regex_replace','.j2','')|list|join(',')}} from templates"
+  template:
+    src: '{{extra_template}}'
+    dest: "{{openstack_overcloud_directory}}/{{extra_template| regex_replace('.j2','')}}"
+  loop: '{{extra_templates}}'
+  loop_control:
+    loop_var: extra_template
+    label: '{{extra_template}}'
+
+- name: Copy execssh.py to the director
+  copy:
+    src: execssh.py
+    dest: "{{stack_home}}/bin/"
+    mode: 0775
+    owner: stack
+    group: stack
+
+- name: "Copy containers-prepare-parameter.yaml to /home/stack for Train and Wallaby"
+  template:
+    src: containers-prepare-parameter.yaml.j2
+    dest: '/home/stack/'
+  when: os_release == "wallaby"
+
+- name: "Copy containers-prepare-parameter.yaml to {{ openstack_overcloud_directory }} for Train and Wallaby"
+  template:
+    src: containers-prepare-parameter.yaml.j2
+    dest: '{{ openstack_overcloud_directory }}/containers-prepare-parameter.yaml'
+  when: os_release == "train" or os_release == "wallaby"
+
+
+- name: Copy playbooks to the director
+  copy:
+    src: playbooks/
+    dest: "{{openstack_playbooks_directory}}"
+
+- name: Copy pcp-setup-control.yml to the director
+  template:
+    src: 'playbooks/postinstall/train/pcp-setup-control.yml.j2'
+    dest: '{{openstack_playbooks_directory}}/postinstall/train/playbooks/pcp-setup-control.yml'
+
+
+- name: Copy infra_scripts to the director
+  copy:
+    src: infra_scripts/
+    dest: "{{openstack_infra_scripts_directory}}"
+
+- name: Copy BIOS Check script to director
+  template:
+    src: playbooks/postinstall/common/get-bios-gen9-settings.sh.j2
+    dest: '{{ openstack_playbooks_directory }}/get-bios-gen9-settings.sh'
+
+- name: Get list of openstack deployer script templates
+  find:
+    paths: "{{role_path}}/templates/scripts/"
+  register: find_script_templates
+  delegate_to: localhost
+
+- name: Generate openstack deployer scripts
+  template:
+    src: "scripts/{{script}}.j2"
+    dest: "{{openstack_scripts_directory}}/{{script}}"
+    mode: 0755
+  loop: "{{script_files}}"
+  loop_control:
+    loop_var: script
+    label: "{{script}}"
+  vars:
+    script_files: "{{find_script_templates.files|map(attribute='path')|map('regex_replace',role_path + '/templates/scripts/','')|map('regex_replace','\\.j2','')|list}}"

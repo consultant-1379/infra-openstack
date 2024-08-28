@@ -1,0 +1,933 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+resource_registry:
+{% if os_release == "train" %}
+  # FirstBoot Script for initial configuration (i.e. Disk Wipe, Root Password, SSH Root Access)
+  OS::TripleO::NodeUserData:                {{openstack_overcloud_directory}}/firstboot/first-boot.yaml
+  # Compute Role Pre-Configuration hook for KSM, Multipath, and vHost-Net Zero Copy
+  OS::TripleO::ComputeExtraConfigPre:       {{openstack_overcloud_directory}}/extraconfig/pre-config/compute.yaml
+
+  # Compute HA Role Pre-Configuration hook for Nova Ephemeral NFS, KSM, Multipath, and vHost-Net Zero Copy
+  OS::TripleO::ComputeHAExtraConfigPre:     {{openstack_overcloud_directory}}/extraconfig/pre-config/compute_ha.yaml
+
+  # Compute HP Role Pre-Configuration hook for Multipath and vHost-Net Zero Copy
+  OS::TripleO::ComputeHPExtraConfigPre:     {{openstack_overcloud_directory}}/extraconfig/pre-config/compute_hp.yaml
+
+  # Compute HPHA Role Pre-Configuration hook for Nova Ephemeral NFS, Multipath, and vHost-Net Zero Copy
+  OS::TripleO::ComputeHPHAExtraConfigPre:   {{openstack_overcloud_directory}}/extraconfig/pre-config/compute_hp_ha.yaml
+
+  # Controller Role Pre-Configuration hook for the NFS mounts (Glance, Glance Staging) and Multipath
+  OS::TripleO::ControllerExtraConfigPre:    {{openstack_overcloud_directory}}/extraconfig/pre-config/controller.yaml
+
+  # Controller Role Post-Configuration hook for the Heat cache
+  OS::TripleO::Tasks::ControllerPostConfig: {{openstack_overcloud_directory}}/extraconfig/post-config/controller.yaml
+
+parameter_defaults:
+  # Increase number of files to keep before purging https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4212
+  LogrotateRotate: 99
+  # Increase number of glance worker threads https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-3376
+  GlanceWorkers: 32
+  # ExtraConfig are Puppet Hieradata variables that will be used when the puppet manifests are executed
+  ControllerExtraConfig:
+    # make sure we recreate bundles when deploying custom containers images.
+    pacemaker::resource::bundle::deep_compare: true
+    pacemaker::resource::ip::deep_compare: true
+    pacemaker::resource::ocf::deep_compare: true
+    # Increase HAProxy timeout to 10m for server and client, this is for VMs with very large image
+    tripleo::haproxy::haproxy_default_timeout: [ 'http-request 40s',  'queue 10m',  'connect 40s', 'client 10m', 'server 10m', 'check 40s' ]
+    # Increase HAProxy total maximum connections
+    tripleo::haproxy::haproxy_global_maxconn: 5120001
+    # Set each HAProxy backend to a lower value in order to queue requests
+    tripleo::haproxy::haproxy_default_maxconn: 20480
+    # Keystone token expiration set at 4 hours
+    keystone::token_expiration: 14440
+    {% if os_release == "train" %}
+    keystone::password_hash_algorithm: pbkdf2_sha512
+    {% endif %}
+    # Heat re-auth model using trust tokens
+    # https://github.com/openstack/heat/blob/stable/queens/doc/source/admin/auth-model.rst#authorization-model-configuration
+    heat::engine::reauthentication_auth_method: trusts
+    # Enable Nova Scheduler compute mode fill in model
+    # 1.0 -> spreading (default)
+    # -1.0 -> stacking
+    nova::scheduler::filter::ram_weight_multiplier: 1.0
+    cinder::config::cinder_config:
+        # Enable multipath for image to volume and volumo to image operations
+        DEFAULT/use_multipath_for_image_xfer:
+            value: 'true'
+        # oslo.messaging config
+        DEFAULT/rpc_conn_pool_size:
+            value: '200'
+     {% if san_type == 'vnx' %}
+     {% set cinder_backend = san_backend_name| default('tripleo_dellemc_vnx') %}
+        {% if os_release == "queens" %}
+        # Disable as a workaround about Cinder-Backup and backup of an in-use volume
+        {{cinder_backend}}/use_multipath_for_image_xfer:
+            value: True
+        {% else%}
+        {{cinder_backend}}/use_multipath_for_image_xfer:
+            value: False
+        {% endif %}
+        {{cinder_backend}}/io_port_list:
+            value: {{san_ports}}
+        {{cinder_backend}}/force_delete_lun_in_storagegroup:
+            value: True
+        {{cinder_backend}}/max_over_subscription_ratio:
+            value: '2.5'
+    {% endif %}
+    {% if san_type == 'unity' %}
+    {% set cinder_backend = san_backend_name| default('tripleo_dellemc_unity') %}
+        # https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-3383
+        # set cinder to use multipath when using a Unity storage array
+        {{cinder_backend}}/use_multipath_for_image_xfer:
+            value: True
+    {% endif %}
+
+    {% if san_type == 'flexos' %}
+    {% if glance_backend == 'cinder' %}
+        DEFAULT/allowed_direct_url_schemes:
+            value: ['cinder']
+        DEFAULT/image_upload_use_cinder_backend:
+            value: True
+    {% endif %}
+    {% if image_volume_cache == 'true' %}
+        DEFAULT/image_volume_cache_enabled:
+            value: True
+    {% endif %}
+    {% endif %}
+    glance::config::api_config:
+        # oslo.messaging config
+        DEFAULT/rpc_conn_pool_size:
+            value: '200'
+    heat::config::heat_config:
+        # oslo.messaging config
+        DEFAULT/rpc_conn_pool_size:
+            value: '200'
+        # Heat Max stacks per tenant
+        DEFAULT/max_stacks_per_tenant:
+            value: '2000'
+    keystone::config::keystone_config:
+        # oslo.messaging config
+        DEFAULT/rpc_conn_pool_size:
+            value: '200'
+
+        # auth_ttl introduced due to security vulnerability
+        # described in https://bugzilla.redhat.com/show_bug.cgi?id=1833164
+        credential/auth_ttl:
+            value: '300'
+        # memcached everywhere
+        catalog/caching:
+            value: true
+        # memcached everywhere
+        domain_config/caching:
+            value: true
+        # memcached everywhere
+        federation/caching:
+            value: true
+        # memcached everywhere
+        revoke/caching:
+            value: true
+        # memcached everywhere
+        role/caching:
+            value: true
+        # memcached everywhere
+        token/cache_on_issue:
+            value: true
+        # memcached everywhere
+        identity/caching:
+            value: true
+        # memcached everywhere
+        identity/cache_time:
+            value: '600'
+        # Keystone add default admin project - part of stack visible fix
+        resource/admin_project_domain_name:
+            value: 'Default'
+        # Keystone add default admin project - part of stack visible fix
+        resource/admin_project_name:
+            value: 'admin'
+    neutron::config::server_config:
+        # oslo.messaging config
+        DEFAULT/rpc_conn_pool_size:
+            value: '200'
+        # nova timeout http
+        nova/timeout:
+            value: '300'
+    nova::config::nova_config:
+        # oslo.messaging config
+        {% if os_release == "train" %}
+        # commented out due to Openstack bug
+        # for more info see https://access.redhat.com/support/cases/#/case/02735850
+        #DEFAULT/rpc_conn_pool_size:
+        #    value: '200'
+        {% endif %}
+        filter_scheduler/build_failure_weight_multiplier:
+            value: '0'
+
+    # Service Token Configuration - TRAIN
+    # For more info see https://access.redhat.com/solutions/4826731
+    cinder::keystone::service_user::send_service_user_token: true
+    cinder::keystone::service_user::project_name: service
+    cinder::keystone::service_user::auth_type: password
+    cinder::keystone::service_user::auth_url: {%raw%}{get_param: [EndpointMap, KeystoneInternal, uri]}{%endraw%}
+
+    cinder::keystone::service_user::password: {%raw%}{get_param: CinderPassword}{%endraw%}
+
+    nova::keystone::service_user::send_service_user_token: true
+    nova::keystone::service_user::project_name: 'service'
+    nova::keystone::service_user::password: {%raw%}{get_param: NovaPassword}{%endraw%}
+
+    nova::keystone::service_user::auth_url: {%raw%}{get_param: [EndpointMap, KeystoneInternal, uri_no_suffix]}{%endraw%}
+
+    nova::keystone::service_user::region_name: {%raw%}{get_param: KeystoneRegion}{%endraw%}
+    
+    octavia::config::octavia_config:
+        # oslo.messaging config
+        DEFAULT/rpc_conn_pool_size:
+            value: '200'
+ 
+
+    # oslo.messaging
+    {% if os_release == "train" %}
+    # RHOSP16 - oslo.messaging executor_thread_pool_size is declared in
+    # puppet manifests and is inherited by the manifests for
+    oslo::messaging::default:executor_thread_pool_size: 200
+    {% endif %}
+    # Heat's rpc_response_timeout is already part of OSP13
+    # Glance's rpc_response_timeout cannot be done
+    aodh::rpc_response_timeout: 600
+    cinder::rpc_response_timeout: 600
+    keystone::rpc_response_timeout: 600
+    neutron::rpc_response_timeout: 600
+    nova::rpc_response_timeout: 600
+    octavia::rpc_response_timeout: 600
+
+    # oslo.db
+    # All OpenStack services database_db_max_retries and database_max_retries are already part of OSP13
+    aodh::db::database_idle_timeout: 3600
+    aodh::db::database_min_pool_size: 100
+    aodh::db::database_max_pool_size: 200
+    aodh::db::database_max_overflow: 300
+    cinder::db::database_idle_timeout: 3600
+    cinder::db::database_min_pool_size: 100
+    cinder::db::database_max_pool_size: 200
+    cinder::db::database_max_overflow: 300
+    keystone::db::database_idle_timeout: 3600
+    keystone::db::database_min_pool_size: 100
+    keystone::db::database_max_pool_size: 200
+    keystone::db::database_max_overflow: 300
+    glance::api::db::database_idle_timeout: 3600
+    glance::api::db::database_min_pool_size: 100
+    glance::api::db::database_max_pool_size: 200
+    glance::api::db::database_max_overflow: 300
+    glance::api::db::database_db_max_retries: -1
+    glance::api::db::database_max_retries: -1
+    heat::db::database_idle_timeout: 3600
+    heat::db::database_connection_recycle_time: 3600
+    heat::db::database_min_pool_size: 100
+    heat::db::database_max_pool_size: 200
+    heat::db::database_max_overflow: 300
+    neutron::db::database_idle_timeout: 3600
+    neutron::db::database_min_pool_size: 100
+    neutron::db::database_max_pool_size: 200
+    neutron::db::database_max_overflow: 300
+    nova::db::database_idle_timeout: 3600
+    nova::db::database_min_pool_size: 100
+    nova::db::database_max_pool_size: 200
+    nova::db::database_max_overflow: 300
+    oslo::db::use_db_reconnect: true
+
+    # Memcached everywhere
+    # https://review.openstack.org/#/c/634505/
+    # Heat cache cannot be enabled using puppet so it's done through a post-config
+    aodh::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    aodh::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    aodh::keystone::authtoken::memcache_pool_dead_retry: 600
+    aodh::keystone::authtoken::memcache_pool_socket_timeout: 1
+    aodh::keystone::authtoken::memcache_pool_unused_timeout: 10
+    cinder::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    cinder::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    cinder::keystone::authtoken::memcache_pool_dead_retry: 600
+    cinder::keystone::authtoken::memcache_pool_socket_timeout: 1
+    cinder::keystone::authtoken::memcache_pool_unused_timeout: 10
+    glance::api::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    glance::api::authtoken::memcache_pool_conn_get_timeout: 1
+    glance::api::authtoken::memcache_pool_dead_retry: 600
+    glance::api::authtoken::memcache_pool_socket_timeout: 1
+    glance::api::authtoken::memcache_pool_unused_timeout: 10
+    heat::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    heat::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    heat::keystone::authtoken::memcache_pool_dead_retry: 600
+    heat::keystone::authtoken::memcache_pool_socket_timeout: 1
+    heat::keystone::authtoken::memcache_pool_unused_timeout: 10
+    keystone::cache_memcache_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    keystone::memcache_dead_retry: 600
+    keystone::memcache_socket_timeout: 1
+    keystone::memcache_pool_unused_timeout: 10
+    keystone::memcache_pool_connection_get_timeout: 1
+    keystone::cache_enabled: true
+    keystone::cache_backend: 'oslo_cache.memcache_pool'
+    keystone::token_caching: true
+    neutron::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    neutron::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    neutron::keystone::authtoken::memcache_pool_dead_retry: 600
+    neutron::keystone::authtoken::memcache_pool_socket_timeout: 1
+    neutron::keystone::authtoken::memcache_pool_unused_timeout: 10
+    nova::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    nova::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    nova::keystone::authtoken::memcache_pool_dead_retry: 600
+    nova::keystone::authtoken::memcache_pool_socket_timeout: 1
+    nova::keystone::authtoken::memcache_pool_unused_timeout: 10
+    swift::proxy::authtoken::memcached_servers: '{{ memcached_servers }}' # swift doesn't like the inet6:[<host]:port format
+    swift::proxy::authtoken::memcache_pool_conn_get_timeout: 1
+    swift::proxy::authtoken::memcache_pool_dead_retry: 600
+    swift::proxy::authtoken::memcache_pool_socket_timeout: 1
+    swift::proxy::authtoken::memcache_pool_unused_timeout: 10
+    nova::metadata::novajoin::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    nova::metadata::novajoin::authtoken::memcache_pool_conn_get_timeout: 1
+    nova::metadata::novajoin::authtoken::memcache_pool_dead_retry: 600
+    nova::metadata::novajoin::authtoken::memcache_pool_socket_timeout: 1
+    nova::metadata::novajoin::authtoken::memcache_pool_unused_timeout: 10
+    nova::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    nova::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    nova::keystone::authtoken::memcache_pool_dead_retry: 600
+    nova::keystone::authtoken::memcache_pool_socket_timeout: 1
+    nova::keystone::authtoken::memcache_pool_unused_timeout: 10
+    nova::cache::enabled: true
+    nova::cache::backend: 'oslo_cache.memcache_pool'
+    nova::cache::memcache_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    nova::cache::memcache_dead_retry: 600
+    nova::cache::memcache_socket_timeout: 1
+    nova::cache::memcache_pool_unused_timeout: 10
+    nova::cache::memcache_pool_connection_get_timeout: 1
+    nova::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    nova::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    nova::keystone::authtoken::memcache_pool_dead_retry: 600
+    nova::keystone::authtoken::memcache_pool_socket_timeout: 1
+    nova::keystone::authtoken::memcache_pool_unused_timeout: 10
+    octavia::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    octavia::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    octavia::keystone::authtoken::memcache_pool_dead_retry: 600
+    octavia::keystone::authtoken::memcache_pool_socket_timeout: 1
+    octavia::keystone::authtoken::memcache_pool_unused_timeout: 10
+
+    # RabbitMQ Tuning
+    rabbitmq::tcp_backlog: 8192
+    rabbitmq::tcp_sndbuf: 196608
+    rabbitmq::tcp_recbuf: 196608
+    # Below is not keystone setting. So going to run the install without it - esohakh
+    # Json for Keystone policy 
+    #KeystonePolicies: 
+    #  keystone-context_is_admin: 
+    #    key: context_is_admin
+    #    value: "role:admin and is_admin_project:True"
+    # Json for Cinder policy 
+    CinderPolicies: 
+      cinder-volume_extension:volume_admin_actions:force_delete: 
+        key: volume_extension:volume_admin_actions:force_delete
+        value: "rule:admin_api or role:heat_stack_owner"
+      cinder-volume_extension:snapshot_admin_actions:force_delete: 
+        key: volume_extension:snapshot_admin_actions:force_delete
+        value: "rule:admin_api or role:heat_stack_owner"
+    # Json for Glance policy 
+    GlancePolicies: 
+      glance-publicize_image: 
+        key: publicize_image
+        value: "role:admin or role:heat_stack_owner"
+    # Json for Heat policy 
+    HeatPolicies:
+      heat-create_port:fixed_ips:
+        key: create_port:fixed_ips
+        value: "rule:context_is_advsvc or rule:admin_or_network_owner or role:heat_stack_owner"
+      heat-create_port:allowed_address_pairs:
+        key: create_portte_port:allowed_address_pairs
+        value: "rule:admin_or_network_owner or role:heat_stack_owner"
+      heat-update_port:fixed_ips:
+        key: update_port:fixed_ips
+        value: "rule:context_is_advsvc or rule:admin_or_network_owner or role:heat_stack_owner"
+      heat-update_port:allowed_address_pairs:
+        key: update_port:allowed_address_pairs
+        value: "rule:admin_or_network_owner or role:heat_stack_owner"
+
+  # {role}Parameters defines Role specific Heat variables used during the deployment
+  ControllerParameters:
+    # TODO
+    # amd_iommu=off due to filesystem corruption issue, once fixed remove the KernelArgs Parameter
+    # Card has been replaced, so no need to set amd_iommu=off
+    # KernelArgs: "amd_iommu=off"
+    # This parameter is already specified in the OVN DVR-HA templates but since we're overwriting any ControllerParameters defined in the templates we need to copy/paste those
+    OVNCMSOptions: "enable-chassis-as-gw"
+    # Custom Kernel tunables
+    ExtraSysctlSettings:
+        # RabbitMQ kernel network stack tuning
+        net.ipv4.tcp_tw_reuse:
+          value: 1
+        # RabbitMQ kernel network stack tuning
+        net.ipv4.tcp_fin_timeout:
+          value: 30
+        # RabbitMQ kernel network stack tuning
+        net.ipv4.tcp_max_syn_backlog:
+          value: 16384
+        # RabbitMQ kernel network stack tuning
+        net.core.somaxconn:
+          value: 8192
+        #Disable Martian packets are logged on compute nodes
+        net.ipv4.conf.default.log_martians:
+          value: 0
+        net.ipv4.conf.all.log_martians:
+          value: 0
+
+  # Increase default MySQL connection limit from 4096 to 50000
+  # 1048576 <- current ulimit in MySQL
+  MysqlMaxConnections: 50000
+  # Heat cronjob to purge deleted heat stacks from the database
+  HeatCronPurgeDeletedAge: 0
+  # Cinder cronjob to purge deleted volumes from the database
+  CinderCronDbPurgeAge: 0
+  # Nova cron on the hour frequency
+  NovaCronArchiveDeleteRowsHour: '*'
+  # Nova Max DB rows to archive
+  NovaCronArchiveDeleteRowsMaxRows: 10000
+  # Truncate nova shadow tables immediately after archiving completes
+  NovaCronArchiveDeleteRowsPurge: True
+  # Nova purge deleted rows until complete
+  NovaCronArchiveDeleteRowsUntilComplete: True
+  # Nova Delete Row Age from today
+  NovaCronArchiveDeleteRowsAge: 0
+  # Maximum resources allowed per top-level stack.
+  HeatMaxResourcesPerStack: -1
+  # Default Barbican keystore
+  BarbicanSimpleCryptoGlobalDefault: true
+
+  # https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4200
+  # Set VMs to resume after reboot. VMs which were powered off prior
+  # to reboot will not be started.
+  NovaResumeGuestsStateOnHostBoot: true
+
+  ComputeExtraConfig:
+    # CPU Overcommit Ratio
+    nova::cpu_allocation_ratio: 4.0 # As per HLD
+    # Memory Overcommit Ratio
+    nova::ram_allocation_ratio: 1.5 # As per HLD
+    # Disk Overcommit Ratio
+    nova::disk_allocation_ratio: 4.0 # Leave some space for logs and snapshots
+    # Disable VM Disk image forced conversion from any format to RAW
+    nova::compute::force_raw_images: false
+    # Creating some volumes can take more than 60 retries (default value)
+    nova::block_device_allocate_retries: '600'
+    # Making sure that each retry will happen after 3 seconds
+    nova::block_device_allocate_retries_interval: '3'
+    nova::rpc_response_timeout: 600
+    # Configure the vCPU profile
+    # https://libvirt.org/formatdomain.html#elementsCPU
+    nova::compute::libvirt::libvirt_cpu_mode: 'host-passthrough'
+    nova::compute::libvirt::libvirt_disk_cachemodes: ["file=writeback","network=writeback","block=none"]
+    neutron::config::server_config:
+        nova/timeout:
+            value: '600'
+    # Disable Scheduler Build failure
+    # https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4209
+    nova::config::nova_config:
+        'filter_scheduler/build_failure_weight_multiplier':
+           value: 0
+    nova::compute::consecutive_build_service_disable_threshold: 0
+    #Disable Martian packets are logged on compute nodes
+    ExtraSysctlSettings:
+        net.ipv4.conf.default.log_martians:
+          value: 0
+        net.ipv4.conf.all.log_martians:
+          value: 0
+
+  ComputeHAExtraConfig:
+    # CPU Overcommit Ratio
+    nova::cpu_allocation_ratio: 4.0 # As per HLD
+    # Memory Overcommit Ratio
+    nova::ram_allocation_ratio: 1.5 # As per HLD
+    # Disk Overcommit Ratio
+    nova::disk_allocation_ratio: 100.0 # Fake Nova Scheduler Driver math since here we have NFS
+    # Disable VM Disk image forced conversion from any format to RAW
+    nova::compute::force_raw_images: false
+    # Creating some volumes can take more than 60 retries (default value)
+    nova::block_device_allocate_retries: '600'
+    # Making sure that each retry will happen after 3 seconds
+    nova::block_device_allocate_retries_interval: '3'
+    nova::rpc_response_timeout: 600
+    # Configure the vCPU profile
+    # https://libvirt.org/formatdomain.html#elementsCPU
+    nova::compute::libvirt::libvirt_cpu_mode: 'host-passthrough'
+    neutron::config::server_config:
+        nova/timeout:
+            value: '600'
+    # Disable Scheduler Build failure
+    # https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4209
+    nova::config::nova_config:
+        'filter_scheduler/build_failure_weight_multiplier':
+           value: 0
+    nova::compute::consecutive_build_service_disable_threshold: 0
+    #Disable Martian packets are logged on compute nodes
+    ExtraSysctlSettings:
+        net.ipv4.conf.default.log_martians:
+          value: 0
+        net.ipv4.conf.all.log_martians:
+          value: 0
+
+  ComputeHPExtraConfig:
+    # CPU Overcommit Ratio
+    nova::cpu_allocation_ratio: 1.0 # HP compute role does not allow any overprovisioning
+    # Memory Overcommit Ratio
+    nova::ram_allocation_ratio: 1.0 # HP compute role does not allow any overprovisioning
+    # Disk Overcommit Ratio
+    nova::disk_allocation_ratio: 0.9 # Leave some space for logs and snapshots
+    # Disable VM Disk image forced conversion from any format to RAW
+    nova::compute::force_raw_images: false
+    # Creating some volumes can take more than 60 retries (default value)
+    nova::block_device_allocate_retries: '600'
+    # Making sure that each retry will happen after 3 seconds
+    nova::block_device_allocate_retries_interval: '3'
+    nova::rpc_response_timeout: 600
+    # Configure the vCPU profile
+    # https://libvirt.org/formatdomain.html#elementsCPU
+    nova::compute::libvirt::libvirt_cpu_mode: 'host-passthrough'
+    neutron::config::server_config:
+        nova/timeout:
+            value: '600'
+    # Disable Scheduler Build failure
+    # https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4209
+    nova::config::nova_config:
+        'filter_scheduler/build_failure_weight_multiplier':
+           value: 0
+    nova::compute::consecutive_build_service_disable_threshold: 0
+    #Disable Martian packets are logged on compute nodes
+    ExtraSysctlSettings:
+        net.ipv4.conf.default.log_martians:
+          value: 0
+        net.ipv4.conf.all.log_martians:
+          value: 0
+
+  ComputeHPHAExtraConfig:
+    # CPU Overcommit Ratio
+    nova::cpu_allocation_ratio: 1.0 # HP compute role does not allow any overprovisioning
+    # Memory Overcommit Ratio
+    nova::ram_allocation_ratio: 1.0 # HP compute role does not allow any overprovisioning
+    # Disk Overcommit Ratio
+    nova::disk_allocation_ratio: 100.0 # Fake Nova Scheduler Driver math since here we have NFS
+    # Disable VM Disk image forced conversion from any format to RAW
+    nova::compute::force_raw_images: false
+    # Creating some volumes can take more than 60 retries (default value)
+    nova::block_device_allocate_retries: '600'
+    # Making sure that each retry will happen after 3 seconds
+    nova::block_device_allocate_retries_interval: '3'
+    nova::rpc_response_timeout: 600
+    # Configure the vCPU profile
+    # https://libvirt.org/formatdomain.html#elementsCPU
+    nova::compute::libvirt::libvirt_cpu_mode: 'host-passthrough'
+    neutron::config::server_config:
+        nova/timeout:
+            value: '600'
+    # Disable Scheduler Build failure
+    # https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4209
+    nova::config::nova_config:
+        'filter_scheduler/build_failure_weight_multiplier':
+           value: 0
+    nova::compute::consecutive_build_service_disable_threshold: 0
+    #Disable Martian packets are logged on compute nodes
+    ExtraSysctlSettings:
+        net.ipv4.conf.default.log_martians:
+          value: 0
+        net.ipv4.conf.all.log_martians:
+          value: 0
+
+#New else for wallaby
+{% elif os_release == "wallaby" %}
+  # Compute Role Pre-Configuration hook for KSM, Multipath, and vHost-Net Zero Copy
+  OS::TripleO::ComputeExtraConfigPre:       {{openstack_overcloud_directory}}/extraconfig/pre-config/compute.yaml
+
+  # Controller Role Pre-Configuration hook for the NFS mounts (Glance, Glance Staging) and Multipath
+  OS::TripleO::ControllerExtraConfigPre:    {{openstack_overcloud_directory}}/extraconfig/pre-config/controller.yaml
+
+parameter_defaults:
+  # Increase number of files to keep before purging https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4212
+  LogrotateRotate: 99
+  # Increase number of glance worker threads https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-3376
+  GlanceWorkers: 32
+    # Heat re-auth model using trust tokens
+  # https://github.com/openstack/heat/blob/stable/queens/doc/source/admin/auth-model.rst#authorization-model-configuration
+  HeatReauthenticationAuthMethod: trusts
+  # Keystone token expiration set at 4 hours
+  TokenExpiration: 14440
+  # ExtraConfig are Puppet Hieradata variables that will be used when the puppet manifests are executed
+  ControllerExtraConfig:
+     #Increase HAProxy timeout to 10m for server and client, this is for VMs with very large image
+     # pacemaker config removed for wallaby as it was causing overcloud deploy to fail
+    tripleo::haproxy::haproxy_default_timeout: [ 'http-request 40s',  'queue 10m',  'connect 40s', 'client 10m', 'server 10m', 'check 40s' ]
+    # Increase HAProxy total maximum connections
+    # https://access.redhat.com/solutions/7052648 - reduce from previous value set in Train
+    tripleo::haproxy::haproxy_global_maxconn: 524000
+    # Set each HAProxy backend to a lower value in order to queue requests
+    tripleo::haproxy::haproxy_default_maxconn: 20480
+    keystone::password_hash_algorithm: pbkdf2_sha512
+    # added for https://access.redhat.com/solutions/7058593
+    keystone::cache::backend_argument: 'memcached_expire_time:3600'
+  
+#   # Enable Nova Scheduler compute mode fill in model
+  #   # 1.0 -> spreading (default)
+  #   # -1.0 -> stacking
+    nova::scheduler::filter::ram_weight_multiplier: 1.0
+
+  #   heat::config::heat_config:
+  #       # Heat Max stacks per tenant
+  #       # disable max_stacks_per_tenant to avoid error
+  #       #  Heat_config[DEFAULT/max_stacks_per_tenant] is already declared at (file: /etc/puppet/modules/heat/manifests/init.pp, line: 480); cannot redeclare (file: /etc/puppet/modules/heat/manifests/config.pp, line: 36)
+  #       #DEFAULT/max_stacks_per_tenant:
+  #       #    value: '2000'
+  # set directly - check if this works?
+    heat::max_stacks_per_tenant: 2000
+
+
+    #added eeifryn
+
+    {% if glance_backend == 'cinder' %}
+        DEFAULT/allowed_direct_url_schemes:
+            value: ['cinder']
+        DEFAULT/image_upload_use_cinder_backend:
+            value: True
+    {% endif %}
+    {% if image_volume_cache == 'true' %}
+        DEFAULT/image_volume_cache_enabled:
+            value: True
+    {% endif %}
+    keystone::config::keystone_config:
+        # auth_ttl introduced due to security vulnerability
+        # described in https://bugzilla.redhat.com/show_bug.cgi?id=1833164
+        credential/auth_ttl:
+            value: '300'
+        # memcached everywhere
+        catalog/caching:
+            value: true
+        # memcached everywhere
+        domain_config/caching:
+            value: true
+        # memcached everywhere
+        federation/caching:
+            value: true
+        # memcached everywhere
+        revoke/caching:
+            value: true
+        # memcached everywhere
+        role/caching:
+            value: true
+        # memcached everywhere
+        token/cache_on_issue:
+            value: true
+        # memcached everywhere
+        identity/caching:
+            value: true
+        # memcached everywhere
+        identity/cache_time:
+            value: '600'
+        # Keystone add default admin project - part of stack visible fix
+        resource/admin_project_domain_name:
+            value: 'Default'
+        # Keystone add default admin project - part of stack visible fix
+        resource/admin_project_name:
+            value: 'admin'
+    neutron::config::server_config:
+        # nova timeout http
+        nova/timeout:
+            value: '300'
+    #redhat confirm this is working
+    nova::config::nova_config:
+    # commented out due to Openstack bug - should be fixed in wallaby
+    # for more info see https://access.redhat.com/support/cases/#/case/02735850
+        DEFAULT/rpc_conn_pool_size:
+            value: '200'
+
+    nova::scheduler::filter::build_failure_weight_multiplier: 0
+    
+#check if needed in wallaby
+    {# {% elif os_release == "train" %}
+    # Service Token Configuration - TRAIN
+    # For more info see https://access.redhat.com/solutions/4826731
+    cinder::keystone::service_user::send_service_user_token: true
+    cinder::keystone::service_user::project_name: service
+    cinder::keystone::service_user::auth_type: password
+    cinder::keystone::service_user::auth_url: {%raw%}{get_param: [EndpointMap, KeystoneInternal, uri]}{%endraw%}
+
+    cinder::keystone::service_user::password: {%raw%}{get_param: CinderPassword}{%endraw%}
+
+    nova::keystone::service_user::send_service_user_token: true
+    nova::keystone::service_user::project_name: 'service'
+    nova::keystone::service_user::password: {%raw%}{get_param: NovaPassword}{%endraw%}
+
+    nova::keystone::service_user::auth_url: {%raw%}{get_param: [EndpointMap, KeystoneInternal, uri_no_suffix]}{%endraw%}
+
+    nova::keystone::service_user::region_name: {%raw%}{get_param: KeystoneRegion}{%endraw%}
+
+    {% endif %} #}
+
+
+    # oslo.messaging
+    # RHOSP16 and later - oslo.messaging executor_thread_pool_size is declared in
+    # puppet manifests and is inherited by the manifests for
+    oslo::messaging::default:executor_thread_pool_size: 200
+    # Heat's rpc_response_timeout is already part of OSP13
+    cinder::rpc_response_timeout: 600
+    keystone::rpc_response_timeout: 600
+    neutron::rpc_response_timeout: 600
+    nova::rpc_response_timeout: 600
+    glance::notify::rabbitmq::rpc_response_timeout: 600
+    horizon::dropdown_max_items: 200
+    neutron::plugins::ml2: 1550
+
+    # oslo.db
+    # according to puppet files - all these timeout/pool size parameters are deprecated or have no effect
+    # cinder::db::database_idle_timeout: 3600 - removed in wallaby, replaced by database_connection_recycle_time
+    cinder::db::database_connection_recycle_time: 3600
+    cinder::db::database_min_pool_size: 100
+    cinder::db::database_max_pool_size: 200
+    cinder::db::database_max_overflow: 300
+    keystone::db::database_connection_recycle_time: 3600
+    keystone::db::database_min_pool_size: 100
+    keystone::db::database_max_pool_size: 200
+    keystone::db::database_max_overflow: 300
+    glance::api::db::database_connection_recycle_time: 3600
+    glance::api::db::database_min_pool_size: 100
+    glance::api::db::database_max_pool_size: 200
+    glance::api::db::database_max_overflow: 300
+    glance::api::db::database_db_max_retries: -1
+    glance::api::db::database_max_retries: -1
+    heat::db::database_connection_recycle_time: 3600
+    heat::db::database_min_pool_size: 100
+    heat::db::database_max_pool_size: 200
+    heat::db::database_max_overflow: 300
+    neutron::db::database_connection_recycle_time: 3600
+    neutron::db::database_min_pool_size: 100
+    neutron::db::database_max_pool_size: 200
+    neutron::db::database_max_overflow: 300
+    nova::db::database_connection_recycle_time: 3600
+    nova::db::database_min_pool_size: 100
+    nova::db::database_max_pool_size: 200
+    nova::db::database_max_overflow: 300
+    oslo::db::use_db_reconnect: true
+
+    # Memcached everywhere
+    # https://review.openstack.org/#/c/634505/
+    # replace post-config heat-cache script
+    heat::cache::enabled: true
+    heat::cache::memcache_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    heat::cache::memcache_dead_retry: 600
+    heat::cache::memcache_socket_timeout: 1
+    heat::cache::memcache_pool_unused_timeout: 10
+    heat::cache::memcache_pool_connection_get_timeout: 1
+    heat::cache::constraint_validation_caching: true
+    heat::cache::service_extension_caching: true
+    heat::cache::resource_finder_caching: true
+
+
+    cinder::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    cinder::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    cinder::keystone::authtoken::memcache_pool_dead_retry: 600
+    cinder::keystone::authtoken::memcache_pool_socket_timeout: 1
+    cinder::keystone::authtoken::memcache_pool_unused_timeout: 10
+    glance::api::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    glance::api::authtoken::memcache_pool_conn_get_timeout: 1
+    glance::api::authtoken::memcache_pool_dead_retry: 600
+    glance::api::authtoken::memcache_pool_socket_timeout: 1
+    glance::api::authtoken::memcache_pool_unused_timeout: 10
+    heat::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    heat::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    heat::keystone::authtoken::memcache_pool_dead_retry: 600
+    heat::keystone::authtoken::memcache_pool_socket_timeout: 1
+    heat::keystone::authtoken::memcache_pool_unused_timeout: 10
+    keystone::cache_memcache_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    keystone::memcache_dead_retry: 600
+    keystone::memcache_socket_timeout: 1
+    keystone::memcache_pool_unused_timeout: 10
+    keystone::memcache_pool_connection_get_timeout: 1
+    keystone::cache::enabled: true  # also controlled by EnableCache - defaults to true for all services
+    keystone::cache::backend: 'oslo_cache.memcache_pool' # not set - defaulting to dogpile.cache.memcached
+    keystone::cache::token_caching: true
+    # /usr/share/openstack-puppet/modules/neutron/manifests/keystone/authtoken.pp
+    neutron::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    neutron::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    neutron::keystone::authtoken::memcache_pool_dead_retry: 600
+    neutron::keystone::authtoken::memcache_pool_socket_timeout: 1
+    neutron::keystone::authtoken::memcache_pool_unused_timeout: 10
+    # These settings don't seem to be present for swift?
+    swift::proxy::authtoken::memcached_servers: '{{ memcached_servers }}' # swift doesn't like the inet6:[<host]:port format
+    swift::proxy::authtoken::memcache_pool_conn_get_timeout: 1
+    swift::proxy::authtoken::memcache_pool_dead_retry: 600
+    swift::proxy::authtoken::memcache_pool_socket_timeout: 1
+    swift::proxy::authtoken::memcache_pool_unused_timeout: 10
+    # Nova cache settings
+    # /usr/share/openstack-puppet/modules/nova/manifests/cache.pp
+
+    # novajoin depracated in wallaby
+
+    nova::cache::enabled: true
+    nova::cache::backend: 'oslo_cache.memcache_pool'
+    nova::cache::memcache_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    nova::cache::memcache_dead_retry: 600
+    nova::cache::memcache_socket_timeout: 1
+    nova::cache::memcache_pool_unused_timeout: 10
+    nova::cache::memcache_pool_connection_get_timeout: 1
+    # /usr/share/openstack-puppet/modules/nova/manifests/keystone/authtoken.pp
+    nova::keystone::authtoken::memcached_servers: '{{ memcached_servers_ipv6 if internal_api_ipv6_subnet is defined else memcached_servers }}'
+    nova::keystone::authtoken::memcache_pool_conn_get_timeout: 1
+    nova::keystone::authtoken::memcache_pool_dead_retry: 600
+    nova::keystone::authtoken::memcache_pool_socket_timeout: 1
+    nova::keystone::authtoken::memcache_pool_unused_timeout: 10
+    {#  removed for wallaby Octavia cache settings  #}
+    # /usr/share/openstack-puppet/modules/octavia/manifests/keystone/authtoken.pp
+   
+
+
+
+
+
+    # RabbitMQ Tuning
+    rabbitmq::tcp_backlog: 8192
+    rabbitmq::tcp_sndbuf: 196608
+    rabbitmq::tcp_recbuf: 196608
+  
+  # need to add /usr/share/openstack-tripleo-heat-templates/environments/enable-secure-rbac.yaml to deploy script
+  # can the  policies below be merged with ones from the environment file above
+  # Also https://access.redhat.com/documentation/en-us/red_hat_openstack_platform/17.1/html-single/release_notes/index#tnf-unsupported-features_relnotes-intro
+  # states that modifying the default policies is unsupported - maybe we can get a support exemption
+  CinderPolicies:
+    cinder-volume_extension:volume_admin_actions:force_delete:
+      key: volume_extension:volume_admin_actions:force_delete
+      value: "rule:admin_api or role:heat_stack_owner"
+    cinder-volume_extension:snapshot_admin_actions:force_delete:
+      key: volume_extension:snapshot_admin_actions:force_delete
+      value: "rule:admin_api or role:heat_stack_owner"
+  # Json for Glance policy
+  GlancePolicies:
+    glance-publicize_image:
+      key: publicize_image
+      value: "role:admin or role:heat_stack_owner"
+  # Json for Heat policy
+  HeatPolicies:
+    heat-create_port:fixed_ips:
+      key: create_port:fixed_ips
+      value: "rule:context_is_advsvc or rule:admin_or_network_owner or role:heat_stack_owner"
+    heat-create_port:allowed_address_pairs:
+      key: create_portte_port:allowed_address_pairs
+      value: "rule:admin_or_network_owner or role:heat_stack_owner"
+    heat-update_port:fixed_ips:
+      key: update_port:fixed_ips
+      value: "rule:context_is_advsvc or rule:admin_or_network_owner or role:heat_stack_owner"
+    heat-update_port:allowed_address_pairs:
+      key: update_port:allowed_address_pairs
+      value: "rule:admin_or_network_owner or role:heat_stack_owner"
+
+  # # {role}Parameters defines Role specific Heat variables used during the deployment
+  ControllerParameters:
+    #OVNCMSOptions: "enable-chassis-as-gw"
+    # Custom Kernel tunables
+    ExtraSysctlSettings:
+        # RabbitMQ kernel network stack tuning
+        net.ipv4.tcp_tw_reuse:
+          value: 1
+        # RabbitMQ kernel network stack tuning
+        net.ipv4.tcp_fin_timeout:
+          value: 30
+        # RabbitMQ kernel network stack tuning
+        net.ipv4.tcp_max_syn_backlog:
+          value: 16384
+        # RabbitMQ kernel network stack tuning
+        net.core.somaxconn:
+          value: 8192
+        #Disable Martian packets are logged on compute nodes
+        net.ipv4.conf.default.log_martians:
+          value: 0
+        net.ipv4.conf.all.log_martians:
+          value: 0
+        #Add vm.min_free_kbytes from post steps - eeifryn 22-01-24
+        vm.min_free_kbytes:
+          value: 180224
+
+  # Increase default MySQL connection limit from 4096 to 50000
+  # 1048576 <- current ulimit in MySQL
+  # /usr/share/openstack-tripleo-heat-templates/deployment/database/mysql-base.yaml
+  MysqlMaxConnections: 50000
+  # Heat cronjob to purge deleted heat stacks from the database
+  # /usr/share/openstack-tripleo-heat-templates/deployment/heat/heat-base-puppet.yaml
+  HeatCronPurgeDeletedAge: 0
+  # Cinder cronjob to purge deleted volumes from the database
+  # usr/share/openstack-tripleo-heat-templates/deployment/cinder/cinder-base.yaml
+  CinderCronDbPurgeAge: 0
+  # Nova cron on the hour frequency
+  # /usr/share/openstack-tripleo-heat-templates/deployment/nova/nova-api-container-puppet.yaml
+  NovaCronArchiveDeleteRowsHour: '*'
+  # Nova Max DB rows to archive
+  NovaCronArchiveDeleteRowsMaxRows: 10000
+  # Truncate nova shadow tables immediately after archiving completes
+  NovaCronArchiveDeleteRowsPurge: True
+  # Nova purge deleted rows until complete
+  NovaCronArchiveDeleteRowsUntilComplete: True
+  # Nova Delete Row Age from today
+  NovaCronArchiveDeleteRowsAge: 0
+  # Maximum resources allowed per top-level stack.
+  # /usr/share/openstack-tripleo-heat-templates/deployment/heat/heat-engine-container-puppet.yaml
+  HeatMaxResourcesPerStack: -1
+  # Default Barbican keystore
+  # /usr/share/openstack-tripleo-heat-templates/environments/barbican-backend-simple-crypto.yaml
+  BarbicanSimpleCryptoGlobalDefault: true
+
+  # # https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4200
+  # # Set VMs to resume after reboot. VMs which were powered off prior
+  # # to reboot will not be started.
+  # /usr/share/openstack-tripleo-heat-templates/deployment/nova/nova-compute-container-puppet.yaml
+  NovaResumeGuestsStateOnHostBoot: true
+
+  ComputeExtraConfig:
+    # CPU Overcommit Ratio
+    # /usr/share/openstack-tripleo-heat-templates/deployment/nova/nova-compute-container-puppet.yaml
+    nova::cpu_allocation_ratio: 4.0 # As per HLD
+    # Memory Overcommit Ratio
+    nova::ram_allocation_ratio: 1.5 # As per HLD
+    # Disk Overcommit Ratio
+    nova::disk_allocation_ratio: 4.0 # Leave some space for logs and snapshots
+    # Disable VM Disk image forced conversion from any format to RAW
+    # /usr/share/openstack-puppet/modules/nova/manifests/compute.pp
+    nova::compute::force_raw_images: false
+    # Creating some volumes can take more than 60 retries (default value)
+    # /usr/share/openstack-puppet/modules/nova/manifests/init.pp
+    # /usr/share/openstack-puppet/modules/nova/manifests/compute.pp uses the value from the init.pp
+    nova::block_device_allocate_retries: '600'
+    # Making sure that each retry will happen after 3 seconds
+    # /usr/share/openstack-puppet/modules/nova/manifests/init.pp
+    # /usr/share/openstack-puppet/modules/nova/manifests/compute.pp uses the value from the init.pp
+    nova::block_device_allocate_retries_interval: '3'
+    # /usr/share/openstack-puppet/modules/nova/manifests/init.pp
+    nova::rpc_response_timeout: 600
+    # Configure the vCPU profile
+    # https://libvirt.org/formatdomain.html#elementsCPU
+    # /usr/share/openstack-puppet/modules/nova/manifests/compute/libvirt.pp
+    # libvirt_cpu_mode is deprecated use nova::compute::libvirt::cpu_mode
+    nova::compute::libvirt::libvirt_cpu_mode: 'host-passthrough'
+    # /usr/share/openstack-puppet/modules/nova/manifests/compute/libvirt.pp
+    # libvirt_cpu_mode is deprecated use nova::compute::libvirt::disk_cachemodes
+    nova::compute::libvirt::libvirt_disk_cachemodes: ["file=writeback","network=writeback","block=none"]
+    # can't find an equivalent outside of server_config
+    neutron::config::server_config:
+      nova/timeout:
+        value: '600'
+    # Disable Scheduler Build failure
+    # https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-4209
+    # disable build_failure_weight_multiplier to avoid duplicate puppet declaration error
+    #    nova::config::nova_config:
+    #    'filter_scheduler/build_failure_weight_multiplier':
+    #       value: 0
+    # replace with nova::scheduler::filter::build_failure_weight_multiplier: 0
+    # from /usr/share/openstack-puppet/modules/nova/manifests/scheduler/filter.pp
+    nova::compute::consecutive_build_service_disable_threshold: 0
+    #Disable Martian packets are logged on compute nodes
+    ExtraSysctlSettings:
+        net.ipv4.conf.default.log_martians:
+          value: 0
+        net.ipv4.conf.all.log_martians:
+          value: 0
+
+
+
+{% endif %}

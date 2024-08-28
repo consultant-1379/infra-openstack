@@ -1,0 +1,17 @@
+- name: Install ceph-ansible
+  package:
+    name: ceph-ansible
+    state: present
+  become: yes
+
+- name: "Create 30-ceph-storage-environment.yaml.j2 in {{openstack_env_directory}}"
+  template:
+    src: 30-ceph-storage-environment.yaml.j2
+    dest: '{{openstack_env_directory}}/30-ceph-storage-environment.yaml'
+    mode: 0644
+
+- name: "Overwrite {{openstack_overcloud_directory}}/extraconfig/pre-config/controller.yaml to exclude NFS resources"
+  copy:
+    src: controller.yaml
+    dest: '{{openstack_overcloud_directory}}/extraconfig/pre-config/controller.yaml'
+    mode: 0644

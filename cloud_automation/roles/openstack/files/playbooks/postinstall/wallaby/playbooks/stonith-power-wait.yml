@@ -1,0 +1,15 @@
+---
+- name: Get controller Stonith IDs
+  shell: "pcs stonith show | awk '/stonith:fence_ipmilan/{ gsub(/*/,\"\",$0);print $1}'"
+  register: stonith
+  run_once: true
+
+# - name: Update power wait timeouts
+#   shell: "pcs stonith update {{ item }} power_wait=4"
+#   with_items: "{{ stonith.stdout_lines }}"
+#   run_once: yes
+
+- name: Update pcmk reboot timeouts
+  shell: "pcs stonith update {{ item }} pcmk_reboot_timeout=120"
+  with_items: "{{ stonith.stdout_lines }}"
+  run_once: yes

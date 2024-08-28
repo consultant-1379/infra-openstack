@@ -1,0 +1,83 @@
+heat_template_version: queens
+
+description: >
+  FirstBoot Script that applies some configuration through CloudInit
+
+parameters:
+  NodeRootPassword:
+    description: Root password for the nodes
+    hidden: true
+    type: string
+  InitNTPServer:
+    description: Initial NTP Server for HW Clock sync
+    type: string
+
+resources:
+  userdata:
+    type: OS::Heat::MultipartMime
+    properties:
+      parts:
+      - config: {get_resource: root_config}
+      - config: {get_resource: disk_wipe}
+      - config: {get_resource: clocksync}
+
+  root_config:
+    type: OS::Heat::CloudConfig
+    properties:
+      cloud_config:
+        ssh_pwauth: true
+        disable_root: false
+        chpasswd:
+          list:
+            str_replace:
+              template: "root:PASSWORD"
+              params:
+                PASSWORD: {get_param: NodeRootPassword}
+          expire: False
+
+  disk_wipe:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      config: |
+        #!/bin/bash
+        echo "Number of disks detected: $(lsblk -no NAME,TYPE,MOUNTPOINT | grep "disk" | awk '{print $1}' | wc -l)"
+        for DEVICE in `lsblk -no NAME,TYPE,MOUNTPOINT | grep "disk" | awk '{print $1}'`
+        do
+          ROOTFOUND=0
+          echo "Checking /dev/$DEVICE..."
+          echo "Number of partitions on /dev/$DEVICE: $(expr $(lsblk -n /dev/$DEVICE | awk '{print $7}' | wc -l) - 1)"
+          for MOUNTS in `lsblk -n /dev/$DEVICE | awk '{print $7}'`
+          do
+            if [ "$MOUNTS" = "/" ]
+            then
+              ROOTFOUND=1
+            fi
+          done
+          if [ $ROOTFOUND = 0 ]
+          then
+            echo "Root not found in /dev/${DEVICE}"
+            echo "Wiping disk /dev/${DEVICE}"
+            sgdisk -Z /dev/${DEVICE}
+            sgdisk -g /dev/${DEVICE}
+          else
+            echo "Root found in /dev/${DEVICE}"
+          fi
+        done
+
+  clocksync:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      config:
+        str_replace:
+          template: |
+            #!/bin/bash
+            # Make sure the clock is synced due to https://bugzilla.redhat.com/show_bug.cgi?id=1578849
+            sed -e "s/^SYNC_HWCLOCK=no$/SYNC_HWCLOCK=yes/g" -i /etc/sysconfig/ntpdate
+            ntpdate -qud $INITNTPServer
+            hwclock --systohc
+          params:
+            $INITNTPServer: {get_param: InitNTPServer}
+
+outputs:
+  OS::stack_id:
+    value: {get_resource: userdata}

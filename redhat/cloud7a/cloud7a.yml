@@ -1,0 +1,128 @@
+---
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname: cloud7a.athtem.eei.ericsson.se
+# Once the signed SSL certificate has been received, copy it and its private key into roles/common/files
+# SSL Certificate file name for the cloud
+ssl_cert: /home/vagrant/infra-openstack/redhat/cloud7a/cloud7a.athtem.eei.ericsson.se.cer
+# private key file name of the SSL Certificate
+ssl_cert_private_key: /home/vagrant/infra-openstack/redhat/cloud7a/cloud7a.athtem.eei.ericsson.se.key
+
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password: "{{ipmi_password}}"
+pm_type: ipmi
+
+use_proxy: False
+
+#
+node_prefix: "{{cloudname.split('.')|first}}"
+os_release: queens
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  - 10.224.52.194
+  - 10.224.52.195
+  - 10.224.52.196
+
+# List of OA IP addresses for deployments where all servers are HPE blades or
+# where the controllers are Dell rack servers and the computes are HPE blades.
+
+oa_ips: 
+  - 10.224.52.106
+  - 10.224.52.128
+  - 10.224.52.150
+  - 10.224.52.172
+
+# For deployments where all servers are Dell rack servers
+ome:
+  ip:
+  user:
+  password: "{{ome_password}}"
+  # Group name in OME e.g. Cloud-12
+  group:
+  # ilo hostname of the director host
+  director_host:
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: True
+is_dell_deployment: False
+# Network Configuration
+# Number of compute nodes
+compute_count: 64
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 10
+
+director_ctlplane_ip: 10.148.54.10
+
+# External Network
+external_default_gateway: 131.160.194.193
+external_subnet: 131.160.194.192/26
+external_pool_start: 131.160.194.194
+external_pool_end: 131.160.194.254
+external_vlan_id: 915
+
+# Internal API network
+internal_api_subnet: 10.148.59.0/24
+internal_api_pool_start: 10.148.59.10
+internal_api_pool_end: 10.148.59.254
+internal_api_vlan_id: 1024
+
+# Storage Network
+storage_subnet: 10.148.58.0/24
+storage_pool_start: 10.148.58.12
+storage_pool_end: 10.148.58.254
+storage_vlan_id: 1028
+
+# Storage NFS
+storage_nfs_subnet: 10.148.55.0/24
+storage_nfs_pool_start: 10.148.55.12
+storage_nfs_pool_end: 10.148.55.254
+storage_nfs_vlan_id: 1033
+
+# Storage Management Network
+storage_mgmt_subnet: 10.148.57.0/24
+storage_mgmt_pool_start: 10.148.57.12
+storage_mgmt_pool_end: 10.148.57.254
+storage_mgmt_vlan_id: 1034
+
+# Tenant Network
+tenant_subnet: 10.148.56.0/24
+tenant_pool_start: 10.148.56.12
+tenant_pool_end: 10.148.56.254
+tenant_vlan_id: 1029
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 131.160.194.215 
+
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  - 131.160.194.216
+  - 131.160.194.217
+  - 131.160.194.218
+
+# Name of the storage pool to create on the VNX/Unity
+san_type: unity
+san_storage_pool: cloud_7a_pool
+san_ip: 10.224.52.210
+san_user: unitycinder
+san_password: "{{unity_password}}"
+# SAN protocol: iSCSI or FC
+san_protocol: iSCSI
+# SAN ports:
+# iSCSI example: spa_iom_0_eth1,spb_iom_0_eth1,spa_iom_0_eth0,spb_iom_0_eth0
+# FC example: A-0,B-0,A-2,B-2
+san_ports: spa_iom_0_eth0,spb_iom_0_eth0,spa_iom_1_eth0,spb_iom_1_eth0 
+san_backend_name: ieatunity-02
+
+# IP addresses for NFS shares
+glancenfs_ip_1: 10.148.55.4
+glancenfs_ip_2: 10.148.55.5
+gnochhinfs_ip_1: 10.148.55.6
+gnochhinfs_ip_2: 10.148.55.7
+cinderbackup_nfs_ip: 10.148.55.8
+nova_nfs_ip1: 10.148.55.9
+nova_nfs_ip2: 10.148.55.10

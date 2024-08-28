@@ -1,0 +1,48 @@
+- hosts: nova_compute
+  serial: 5
+  user: heat-admin
+  become: yes
+  gather_facts: no
+  vars:
+    cloud: "{{cloud_name | default(tower_inventory_name)}}"
+  vars_files:
+    - '../redhat/{{cloud}}/{{cloud}}.yml'
+  roles:
+    - get_compute_files
+    - parse_compute_settings_files
+    - check_linux_services
+
+- hosts: Controller
+  user: heat-admin
+  become: yes
+  gather_facts: no
+  vars:
+    cloud: "{{cloud_name | default(tower_inventory_name)}}"
+  vars_files:
+    - '../redhat/{{cloud}}/{{cloud}}.yml'
+    - '../redhat/{{cloud}}/passwords.yml'
+  roles:
+    - get_controller_files
+    - parse_controller_settings_files
+    - check_linux_services
+
+- hosts: overcloud
+  user: heat-admin
+  become: yes
+  gather_facts: no
+  vars:
+    cloud: "{{cloud_name | default(tower_inventory_name)}}"
+  vars_files:
+    - '../redhat/{{cloud}}/{{cloud}}.yml'
+  roles:
+    - dod_common_settings
+
+- hosts: localhost
+  become: no
+  gather_facts: no
+  vars:
+    dod_json_path: /var/tmp/record_of_settings/
+    cloud: "{{cloud_name | default(tower_inventory_name)}}"
+  roles:
+    - network
+    - dod_to_json

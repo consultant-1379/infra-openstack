@@ -1,0 +1,9 @@
+---
+  - name: set rpc_conn_pool_size=200
+    ini_file:
+      path: /var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf
+      section: DEFAULT
+      option: rpc_conn_pool_size
+      value: 200
+      backup: yes
+    register: nova_conf_updated

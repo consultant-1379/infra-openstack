@@ -1,0 +1,19 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+parameter_defaults:
+  EnableFencing: true
+  FencingConfig:
+    devices:
+    {% for node in nodes -%}
+    {% if node.ilo_ip in ctrl_ilo_ips %}
+    # {{node.name}}
+    - agent: fence_ipmilan
+      host_mac: '{{node.mac|lower}}'
+      params:
+        login: '{{pm_user}}'
+        ipaddr: '{{node.ilo_ip}}'
+        ipport: 623
+        passwd: '{{pm_password}}'
+        lanplus: 1
+        power_wait: 4
+    {% endif %}
+    {% endfor %}

@@ -1,0 +1,482 @@
+---
+storage_check: []
+storage_temp: []
+temp: []
+unity: true
+# nova settings
+nova_results: []
+internal_ip: ''
+nova_check:
+  - rpc_conn_pool_size=200
+  - rpc_response_timeout=600
+  - executor_thread_pool_size=200
+  - memcache_pool_dead_retry=600
+  - memcache_pool_socket_timeout=1
+  - memcache_pool_unused_timeout=10
+  - memcache_pool_conn_get_timeout=1
+  - min_pool_size=100
+  - max_pool_size=200
+  - max_overflow=300
+  - idle_timeout=3600
+  - ram_weight_multiplier=1.0
+  - os_compute_api:os-extended-server-attributes:rule:admin_api or role:heat_stack_owner
+nova_queens:
+  - container_name:nova_metadata
+  - container_name:nova_api
+  - container_name:nova_placement
+  - container_name:nova_scheduler
+  - container_name:nova_vnc_proxy
+  - container_name:nova_consoleauth
+  - container_name:nova_api_cron
+  - container_name:nova_conductor
+nova_train:
+  - container_name:nova_metadata
+  - container_name:nova_scheduler
+  - container_name:nova_vnc_proxy
+  - container_name:nova_api_cron
+  - container_name:nova_conductor
+# swift settings
+swift_results: []
+swift_check:
+  - container_name:swift_proxy
+  - container_name:swift_container_auditor
+  - container_name:swift_object_expirer
+  - container_name:swift_object_updater
+  - container_name:swift_container_replicator
+  - container_name:swift_account_auditor
+  - container_name:swift_account_server
+  - container_name:swift_object_replicator
+  - container_name:swift_container_server
+  - container_name:swift_rsync
+  - container_name:swift_account_reaper
+  - container_name:swift_account_replicator
+  - container_name:swift_object_auditor
+  - container_name:swift_object_server
+  - container_name:swift_container_updater
+# haproxy settings
+haproxy_results: []
+temp_haproxy: []
+haproxy_check:
+  - timeout  http-request 40s
+  - timeout  queue 10m
+  - timeout  connect 40s
+  - timeout  client 10m
+  - timeout  server 10m
+  - timeout  check 40s
+  - maxconn  5120001
+  - maxconn  20480
+haproxy_check_queens:
+  - haproxy-bundle-docker
+haproxy_check_train:
+  - haproxy-bundle-podman
+# mysql galera settings
+mysql_results: []
+max_buffer_size: 100
+per_cent_of_total_memory: 0.2
+mysql_check:
+  - max_connections = 50000
+  - innodb_flush_method = O_DIRECT
+  - net_write_timeout = 600
+  - net_read_timeout = 600
+  - connect_timeout = 28800
+mysql_check_queens:
+  - galera-bundle-docker
+mysql_check_train:
+  - galera-bundle-podman
+# horizon settings
+horizon_check:
+  - DROPDOWN_MAX_ITEMS = 200
+# var for gather cinder results
+cinder_results: []
+# 4 vnx or unity ports 1 pool name
+num_of_ports_and_pool_name: 5
+# cinder settings
+cinder_check:
+  - use_multipath_for_image_xfer=True
+  - rpc_conn_pool_size=200
+  - rpc_response_timeout=600
+  - executor_thread_pool_size=200
+  - memcache_pool_dead_retry=600
+  - memcache_pool_socket_timeout=1
+  - memcache_pool_unused_timeout=10
+  - memcache_pool_conn_get_timeout=1
+  - min_pool_size=100
+  - max_pool_size=200
+  - max_overflow=300
+  - volume_extension:volume_admin_actions:force_delete:rule:admin_apiorrole:heat_stack_owner
+  - volume_extension:snapshot_admin_actions:force_delete:rule:admin_apiorrole:heat_stack_owner
+  - volume_extension:snapshot_admin_actions:reset_status:role:reset_role
+  - group:reset_status:role:reset_role
+  - volume_extension:backup_admin_actions:reset_status:role:reset_role
+  - volume_extension:volume_admin_actions:reset_status:role:reset_role
+  - vendor DGC
+  - product LUNZ
+  - product.*
+  - product_blacklist LUNZ
+  - path_grouping_policygroup_by_prio
+  - path_selector round-robin0
+  - path_checkeremc_clariion
+  - no_path_retry12
+  - features0
+  - hardware_handler 1alua
+  - prioalua
+  - failbackimmediate
+  - skip_kpartxyes
+  - container_name:cinder_api_cron
+  - container_name:cinder_scheduler
+  - "san_login={{san_user}}"
+  - "san_password={{san_password}}"
+  - "san_ip={{san_ip}}"
+  - idle_timeout=3600
+cinder_check_queens:
+  - controller0.internalapi:11211
+  - controller1.internalapi:11211
+  - controller2.internalapi:11211
+memcache_server: []
+# heat settings
+heat_results: []
+heat_check:
+  - reauthentication_auth_method=trusts
+  - rpc_conn_pool_size=200
+  - rpc_response_timeout=600
+  - executor_thread_pool_size=200
+  - max_stacks_per_tenant=2000
+  - memcache_pool_dead_retry=600
+  - memcache_pool_socket_timeout=1
+  - memcache_pool_unused_timeout=10
+  - memcache_pool_unused_timeout=10
+  - memcache_pool_conn_get_timeout=1
+  - min_pool_size=100
+  - max_pool_size=200
+  - max_overflow=300
+  - container_name:heat_api_cfn
+  - container_name:heat_api_cron
+  - container_name:heat_engine
+  - container_name:heat_api
+  - idle_timeout=3600
+heat_check_queens:
+  - controller0.internalapi:11211
+  - controller1.internalapi:11211
+  - controller2.internalapi:11211
+# keystone settings
+keystone_results: []
+temp_keystone: []
+num_of_caching: 7
+keystone_check:
+  - caching=True
+  - rpc_conn_pool_size=200
+  - rpc_response_timeout=600
+  - executor_thread_pool_size=200
+  - cache_time=600
+  - password_hash_algorithm=pbkdf2_sha512
+  - provider=fernet
+  - expiration=14440
+  - controller0.internalapi:11211
+  - controller1.internalapi:11211
+  - controller2.internalapi:11211
+  - memcache_socket_timeout=1
+  - memcache_dead_retry=600
+  - memcache_pool_unused_timeout=10
+  - memcache_pool_connection_get_timeout=1
+  - enabled=True
+  - tls_enabled=False
+  - backend=oslo_cache.memcache_pool
+  - min_pool_size=100
+  - max_pool_size=200
+  - max_overflow=300
+  - idle_timeout=3600
+keystone_queens:
+  - container_name:keystone
+  - container_name:barbican_keystone_listener
+  - container_name:keystone_cron
+keystone_train:
+  - container_name:barbican_keystone_listener
+  - container_name:keystone
+# glance settings
+glance_results: []
+temp_glance: []
+glance_check:
+  - rpc_conn_pool_size=200
+  - executor_thread_pool_size=200
+  - memcache_pool_dead_retry=600
+  - memcache_pool_socket_timeout=1
+  - memcache_pool_unused_timeout=10
+  - memcache_pool_conn_get_timeout=1
+  - min_pool_size=100
+  - max_pool_size=200
+  - max_overflow=300
+  - max_retries=-1
+  - db_max_retries=-1
+  - workers=32
+  - publicize_image:role:adminorrole:heat_stack_owner
+  - container_name:glance_api
+  - idle_timeout=3600
+glance_checks_queens:
+  - controller0.internalapi:11211
+  - controller1.internalapi:11211
+  - controller2.internalapi:11211
+glance_nfs_unity_check:
+  - /var/lib/gnocchi type nfs4
+  - /var/lib/glance/images type nfs4
+  - /var/lib/glance/staging type nfs4
+glance_nfs_vnx_check:
+  - /var/lib/gnocchi type nfs
+  - /var/lib/glance/images type nfs
+  - /var/lib/glance/staging type nfs
+# neutron settings
+neutron_results: []
+temp_neutron: []
+neutron_check:
+  - rpc_conn_pool_size=200
+  - executor_thread_pool_size=200
+  - min_pool_size=100
+  - max_pool_size=200
+  - max_overflow=300
+  - memcache_pool_dead_retry=600
+  - rpc_response_timeout=600
+  - idle_timeout=3600
+  - memcache_pool_socket_timeout=1
+  - memcache_pool_unused_timeout=10
+  - memcache_pool_conn_get_timeout=1
+  - timeout=300
+  - global_physnet_mtu=1558
+  - create_port:fixed_ips:rule:context_is_advsvc or rule:admin_or_network_owner or rule:shared or role:heat_stack_owner
+  - create_port:fixed_ips:subnet_id:rule:context_is_advsvc or rule:admin_or_network_owner or rule:shared or role:heat_stack_owner
+  - create_port:fixed_ips:ip_address:rule:context_is_advsvc or rule:admin_or_network_owner or role:heat_stack_owner
+  - create_port:allowed_address_pairs:ip_address:rule:admin_or_network_owner or role:heat_stack_owner
+  - create_port:allowed_address_pairs:mac_address:rule:admin_or_network_owner or role:heat_stack_owner
+  - create_port:allowed_address_pairs:rule:admin_or_network_owner or role:heat_stack_owner
+  - update_port:allowed_address_pairs:mac_address:rule:admin_or_network_owner or role:heat_stack_owner
+  - update_port:fixed_ips:ip_address:rule:context_is_advsvc or rule:admin_or_network_owner or role:heat_stack_owner
+  - update_port:fixed_ips:rule:context_is_advsvc or rule:admin_or_network_owner or rule:shared or role:heat_stack_owner
+  - update_port:allowed_address_pairs:ip_address:rule:admin_or_network_owner or role:heat_stack_owner
+  - update_port:allowed_address_pairs:rule:admin_or_network_owner or role:heat_stack_owner
+  - update_port:fixed_ips:subnet_id:rule:context_is_advsvc or rule:admin_or_network_owner or rule:shared or role:heat_stack_owner
+  - path_mtu = 1550
+  - container_name:neutron_l3_agent
+  - container_name:neutron_ovs_agent
+  - container_name:neutron_metadata_agent
+  - container_name:neutron_dhcp
+  - container_name:neutron_api
+neutron_check_queens:
+  - controller0.internalapi:11211
+  - controller1.internalapi:11211
+  - controller2.internalapi:11211
+# gather_cinder_backup_volume. One backup and one volume controller allowed
+pcsd_cluster_results: []
+max_allowed: 2
+# pcs settings
+controller_check:
+  - controller-0
+  - controller-1
+  - controller-2
+rabbitmq_check:
+  - rabbitmq-bundle-0
+  - rabbitmq-bundle-1
+  - rabbitmq-bundle-2
+galera_check:
+  - galera-bundle-0
+  - galera-bundle-1
+  - galera-bundle-2
+redis_check:
+  - redis-bundle-0
+  - redis-bundle-1
+  - redis-bundle-2
+# vars file for parse_settings_files
+cinder_settings:
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: san_ip }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: san_login }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: san_password }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: use_multipath_for_image_xfer }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: rpc_conn_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: rpc_response_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: executor_thread_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: memcached_servers }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: memcache_pool_dead_retry }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: memcache_pool_socket_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: memcache_pool_unused_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: memcache_pool_conn_get_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: min_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: max_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: max_overflow }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: idle_timeout }
+#cinder policies
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/policy.json", setting: '\"volume_extension:volume_admin_actions:force_delete\":' }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/policy.json", setting: '\"volume_extension:snapshot_admin_actions:force_delete\":' }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/policy.json", setting: '\"volume_extension:snapshot_admin_actions:reset_status\":' }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/policy.json", setting: '\"group:reset_status\":' }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/policy.json", setting: '\"volume_extension:backup_admin_actions:reset_status\":' }
+  - { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/policy.json", setting: '\"volume_extension:volume_admin_actions:reset_status\":' }
+#check multipath
+  - { file: "/etc/multipath.conf", setting: '-m1 vendor' }
+  - { file: "/etc/multipath.conf", setting: 'product' }
+  - { file: "/etc/multipath.conf", setting: 'path' }
+  - { file: "/etc/multipath.conf", setting: 'features' }
+  - { file: "/etc/multipath.conf", setting: 'alua' }
+  - { file: "/etc/multipath.conf", setting: 'failback' }
+  - { file: "/etc/multipath.conf", setting: 'skip_kpartx' }
+#storage settings
+vnx_settings:
+  { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: [io_port_list, storage_vnx_pool_names]}
+unity_settings:
+  { file: "/var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf", setting: [unity_storage_pool_names, unity_io_ports]}
+
+#cinder_settings_unwanted: 'auth_type'
+cinder_containers:
+  - cinder_api_cron
+  - cinder_scheduler
+  - cinder_api
+
+settings_store_path: /var/tmp/record_of_settings/parsed-controller-settings/
+
+nova_settings:
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: rpc_conn_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: rpc_response_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: executor_thread_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: memcached_servers }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: memcache_pool_dead_retry }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: memcache_pool_socket_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: memcache_pool_unused_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: memcache_pool_conn_get_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: min_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: max_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: max_overflow }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: idle_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/nova.conf", setting: ram_weight_multiplier }
+  - { file: "/var/lib/config-data/puppet-generated/nova/etc/nova/policy.json", setting: 'os_compute_api:os-extended-server-attributes' }
+
+nova_containers_queens:
+  - nova_metadata
+  - nova_api
+  - nova_placement
+  - nova_scheduler
+  - nova_vnc_proxy
+  - nova_consoleauth
+  - nova_api_cron
+  - nova_conductor
+nova_containers_train:
+  - nova_metadata
+  - nova_scheduler
+  - nova_vnc_proxy
+  - nova_api_cron
+  - nova_conductor
+
+keystone_settings:
+  { file: "/var/lib/config-data/puppet-generated/keystone/etc/keystone/keystone.conf", setting: [caching, rpc_conn_pool_size,
+   rpc_response_timeout, executor_thread_pool_size, cache_time, password_hash_algorithm, provider, expiration, memcache_servers,
+   memcache_socket_timeout, memcache_dead_retry, memcache_pool_unused_timeout, memcache_pool_connection_get_timeout, enabled,
+   backend, min_pool_size, max_pool_size, max_overflow, idle_timeout, tls_enabled]}
+
+keystone_containers_queens:
+  - keystone
+  - barbican_keystone_listener
+  - keystone_cron
+# keystone_settings_unwanted: ^$|^#
+keystone_containers_train:
+  - openstack-barbican-keystone
+  - openstack-keystone
+
+heat_settings:
+  { file: "/var/lib/config-data/puppet-generated/heat/etc/heat/heat.conf", setting: [reauthentication_auth_method,
+   rpc_conn_pool_size, rpc_response_timeout, executor_thread_pool_size, max_stacks_per_tenant, memcached_servers,
+   memcache_pool_dead_retry, memcache_pool_socket_timeout, memcache_pool_unused_timeout=, memcache_pool_conn_get_timeout,
+   min_pool_size, max_pool_size, max_overflow, idle_timeout]}
+
+heat_containers:
+  - heat_api_cfn
+  - heat_api_cron
+  - heat_engine
+  - heat_api
+
+glance_settings:
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: rpc_conn_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: executor_thread_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: memcached_servers }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: memcache_pool_dead_retry }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: memcache_pool_socket_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: memcache_pool_unused_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: memcache_pool_conn_get_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: min_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: max_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: max_overflow }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: idle_timeout }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: max_retries }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/glance-api.conf", setting: workers }
+  - { file: "/var/lib/config-data/puppet-generated/glance_api/etc/glance/policy.json", setting: publicize_image }
+
+glance_containers:
+  - glance_api
+
+neutron_settings:
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: rpc_conn_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: executor_thread_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: min_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: max_pool_size }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: max_overflow }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: memcached_servers }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: memcache_pool_dead_retry }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: timeout }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/neutron.conf", setting: global_physnet_mtu }
+# neutron policies
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"create_port:fixed_ips\": ' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"create_port:fixed_ips:subnet_id\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"create_port:fixed_ips:ip_address\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"create_port:allowed_address_pairs:ip_address\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"create_port:allowed_address_pairs:mac_address\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"create_port:allowed_address_pairs\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"update_port:allowed_address_pairs:mac_address\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"update_port:fixed_ips:ip_address\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"update_port:fixed_ips\": ' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"update_port:allowed_address_pairs:ip_address\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"update_port:allowed_address_pairs\":' }
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/policy.json", setting: '\"update_port:fixed_ips:subnet_id\":' }
+# Check path_mtu
+  - { file: "/var/lib/config-data/puppet-generated/neutron/etc/neutron/plugins/ml2/ml2_conf.ini", setting: path_mtu }
+
+
+neutron_containers:
+  - neutron_l3_agent
+  - neutron_ovs_agent
+  - neutron_metadata_agent
+  - neutron_dhcp
+  - neutron_api
+
+neutron_unwanted_settings: heartbeat_timeout_threshold
+
+swift_containers:
+  - swift_proxy
+  - swift_container_auditor
+  - swift_object_expirer
+  - swift_object_updater
+  - swift_container_replicator
+  - swift_account_auditor
+  - swift_account_server
+  - swift_object_replicator
+  - swift_container_server
+  - swift_rsync
+  - swift_account_reaper
+  - swift_account_replicator
+  - swift_object_auditor
+  - swift_object_server
+  - swift_container_updater
+
+haproxy_settings:
+  { file: "/var/lib/config-data/puppet-generated/haproxy/etc/haproxy/haproxy.cfg", setting: ['timeout  http-request',
+   'timeout  queue', 'timeout  connect', 'timeout  client', 'timeout  server', 'timeout  check', 'maxconn']}
+
+haproxy_containers:
+  - haproxy-bundle-docker
+
+haproxy_train_containers:
+  -  haproxy-bundle
+mysql_settings:
+  { file: "/var/lib/config-data/puppet-generated/mysql/etc/my.cnf.d/galera.cnf", setting: ['max_connections',
+   'innodb_buffer_pool_size', 'innodb_buffer_pool_instances', 'innodb_flush_method', 'net_write_timeout',
+   'net_read_timeout', 'connect_timeout']}
+
+galera_containers:
+  - galera-bundle-docker
+galera_train_containers:
+  - galera-bundle-podman
+horizon_settings:
+  - { file: "/var/lib/config-data/puppet-generated/horizon/etc/openstack-dashboard/local_settings", setting: 'DROPDOWN_MAX_ITEMS' }

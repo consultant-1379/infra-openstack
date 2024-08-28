@@ -1,0 +1,70 @@
+---
+  - name: gathering ntp.conf settings
+    shell: grep -Ev '^$|^#' /etc/ntp.conf
+    register: ntp_conf_result
+    ignore_errors: true
+
+  - name: Add ntp results to a list
+    set_fact:
+      ntp_results: "{{ntp_results + [item]}}"
+    loop: "{{ntp_conf_result.stdout_lines}}"
+
+  - name: gather time, date and timezone info
+    shell: ntpstat | grep synchronised | awk '{print $1" "$2" "$3" "$4}'
+    register: ntpstat_result
+    ignore_errors: true
+
+  - name: Add ntpstat results to a list
+    set_fact:
+      ntp_results: "{{ntp_results + [item]}}"
+    loop: "{{ntpstat_result.stdout_lines}}"
+
+  - name: check ntp is synchronising to defined ntp servers
+    shell: /usr/sbin/ntpq -p | grep -o '193.180.251'
+    register: ntpq_result
+    ignore_errors: true
+
+  - name: Add ntp results to a list
+    set_fact:
+      ntp_results: "{{ntp_results + [item]}}"
+    loop: "{{ntpq_result.stdout_lines}}"
+
+# checking required settings are present
+  - name: Validating ntp settings
+    set_fact:
+      expected_results: "{{ntp_check | difference(ntp_results) }}"
+  - name: Validating ntp settings
+    set_fact:
+      actual_results: "{{ntp_results | difference(ntp_check) }}"
+
+  - name: Combine ntp settings to a dictionary
+    set_fact:
+      ntp_setting_results: "{{ ntp_setting_results | default({}) | combine({inventory_hostname:{'expected': expected_results, 'actual': actual_results }}) }}"
+
+# add error result to a file if there is an error
+  - block:
+
+    - name:  add section heading
+      shell: |
+         echo "
+         ****NTP section******" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - shell: echo "[EXPECTED_RESULTS:]" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+      loop: "{{expected_results}}"
+
+    - shell: echo "[ACTUAL_RESULTS:]" >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+
+    - name: save errors to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-common-settings
+      loop: "{{actual_results}}"
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: expected_results | length > 0 or actual_results | length > 0
+
+  - set_fact:
+      expected_results: []
+      actual_results: []

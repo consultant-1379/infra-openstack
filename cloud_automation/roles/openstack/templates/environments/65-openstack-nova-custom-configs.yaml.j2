@@ -1,0 +1,35 @@
+parameter_defaults:
+{% if os_release == "train" %}
+  # Nova Scheduler filters
+  # These filters have been removed in the Train release: 'RamFilter','CoreFilter','DiskFilter' - nova uses placement service instead
+  NovaSchedulerDefaultFilters: ['RetryFilter','AvailabilityZoneFilter','ComputeFilter','ImagePropertiesFilter','ServerGroupAntiAffinityFilter','ServerGroupAffinityFilter','PciPassthroughFilter','NUMATopologyFilter','AggregateInstanceExtraSpecsFilter']
+  # Nova Scheduler drivers
+  NovaSchedulerAvailableFilters: ["nova.scheduler.filters.all_filters","nova.scheduler.filters.pci_passthrough_filter.PciPassthroughFilter"]
+  # Reserved memory on the hypervisor
+  NovaReservedHostMemory: 16384
+  # Enable iSCSI MultiPathD in the compute nodes
+  NovaLibvirtVolumeUseMultipath: true
+  # Adding further configs https://jira-oss.seli.wh.rnd.internal.ericsson.com/browse/ITTEI-5356 and https://access.redhat.com/support/cases/#/case/02653971
+  NovaComputeOptVolumes:
+    - /etc/multipath.conf:/etc/multipath.conf:ro
+    - /etc/multipath/:/etc/multipath/:rw
+  CinderVolumeOptVolumes:
+    - /etc/multipath.conf:/etc/multipath.conf:ro
+    - /etc/multipath/:/etc/multipath/:rw
+  #  End configuration
+  # Enable IPv6
+  NovaIPv6: true
+
+#Added wallaby config
+{% elif os_release == "wallaby" %}
+  # Nova Scheduler filters
+  # These filters have been removed in the Train release: 'RamFilter','CoreFilter','DiskFilter' - nova uses placement service instead
+  NovaSchedulerEnabledFilters: ['AvailabilityZoneFilter','ComputeFilter','ImagePropertiesFilter','ServerGroupAntiAffinityFilter','ServerGroupAffinityFilter','PciPassthroughFilter','NUMATopologyFilter','AggregateInstanceExtraSpecsFilter']
+  # Nova Scheduler drivers
+  NovaSchedulerAvailableFilters: ["nova.scheduler.filters.all_filters","nova.scheduler.filters.pci_passthrough_filter.PciPassthroughFilter"]
+  # Reserved memory on the hypervisor
+  NovaReservedHostMemory: 16384
+  # Enable IPv6
+  NovaIPv6: true
+
+{% endif %}

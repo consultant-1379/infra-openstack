@@ -1,0 +1,11 @@
+
+# DNS Servers
+dns_servers:
+  - 159.107.173.12
+  - 159.107.173.3
+# NTP Servers
+ntp_servers:
+  - 159.107.173.12
+  - 159.107.173.223
+
+timezone: Europe/Dublin

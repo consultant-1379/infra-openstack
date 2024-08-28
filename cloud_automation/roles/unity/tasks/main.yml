@@ -1,0 +1,13 @@
+- name: "Create 005-create_update_docker_unity_image.sh in {{openstack_scripts_directory}}"
+  template:
+    src: '{{ prefix }}005-create_update_docker_unity_image.sh.j2'
+    dest: '{{ openstack_scripts_directory }}/005-create_update_docker_unity_image.sh'
+    mode: 0755
+  vars:
+    prefix: '{{ "train-" if os_release == "train" else "" }}'
+
+- name: "Create 30-unity-storage-environment.yaml.j2 in {{openstack_env_directory}}"
+  template:
+    src: 30-unity-storage-environment.yaml.j2
+    dest: '{{openstack_env_directory}}/30-unity-storage-environment.yaml'
+    mode: 0644

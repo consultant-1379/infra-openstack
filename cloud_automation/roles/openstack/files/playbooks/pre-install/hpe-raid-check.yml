@@ -1,0 +1,41 @@
+---
+- hosts: overcloud
+  gather_facts: no
+  become: yes
+  serial: 1
+  tasks:
+  - name: Create redhat server repo on all nodes
+    yum_repository:
+      name: rhel-7-server-rpms-20190910
+      description: RHEL7 Server RPMs
+      file: rhel-7-server-rpms-20190910
+      baseurl: http://10.44.77.158/snap20190910T112954/rhospall_latest/rhel-7-server-rpms
+      gpgcheck: no
+    tags:
+    - repo
+
+  - name: install hpssacli rpm from remote repo
+    yum:
+      name: http://10.44.77.158/HP/Cloud/hpssacli-2.40-13.0.x86_64.rpm
+      state: present
+    tags:
+    - install   
+        
+  - name: Run Check command on all nodes and report output
+    shell: "hpssacli ctrl all show config"
+    register: hpssacli_result
+    tags:
+    - check
+
+  - name: Write results to logfile
+    blockinfile:
+       create: yes
+       path: "/home/stack/raid-check.log"
+       insertafter: BOF
+       block: "{{ hpssacli_result.stdout }}"
+       marker: "# {{ inventory_hostname }} {mark}"
+    delegate_to: localhost
+    tags:
+    - log
+
+  - debug: var=hpssacli_result.stdout_lines

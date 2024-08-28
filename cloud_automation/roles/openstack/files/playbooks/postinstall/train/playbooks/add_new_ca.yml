@@ -1,0 +1,14 @@
+---
+- name: copy ca certs
+  copy:
+    src: '{{ca_cert}}'
+    dest: /etc/pki/ca-trust/source/anchors/
+  loop: 
+    - EGADIssuingCA3.crt
+    - EGADRootCA.crt
+  loop_control:
+    loop_var: ca_cert
+    label: '{{ca_cert}}'
+
+- name: Update CA certs and extract
+  shell: update-ca-trust extract

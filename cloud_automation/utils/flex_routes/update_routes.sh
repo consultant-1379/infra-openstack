@@ -1,0 +1,1 @@
+ansible-playbook -i flex_inventory.yaml flex_routes.yaml --ask-vault-pass

@@ -1,0 +1,139 @@
+---
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname: cloud4b.athtem.eei.ericsson.se
+# Once the signed SSL certificate has been received, copy it and its private key into roles/common/files
+# SSL Certificate file name for the cloud
+ssl_cert: "{{ cloud_dir }}/cloud4b.athtem.eei.ericsson.se.cer"
+# private key file name of the SSL Certificate
+ssl_cert_private_key: "{{ cloud_dir }}/cloud4b.athtem.eei.ericsson.se.key"
+
+node_prefix: "{{cloudname.split('.')|first}}"
+os_release: queens
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password: "{{ipmi_password}}"
+pm_type: pxe_ipmitool
+
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  - 10.151.43.252
+  - 10.151.41.55
+  - 10.151.43.246
+control_plane_cidr_prefix: 25
+# Allows controllers to reach iLO (IPv6 only)
+ilo_cidr: 10.151.40.0/22
+# List of OA IP addresses for deployments where all servers are HPE blades or
+# where the controllers are Dell rack servers and the computes are HPE blades.
+oa_ips:
+  - 10.151.40.12
+  - 10.151.41.10
+  - 10.151.41.56
+  - 10.151.43.218
+
+# which half of the chassis is being used 
+chassis_half: bottom
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: True
+is_dell_deployment: False
+# Network Configuration
+# Number of compute nodes
+compute_count: 29
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 0
+
+director_ctlplane_ip: 10.148.34.139
+
+# Proxy configuration
+use_proxy: False
+http_proxy: http://atproxy2.athtem.eei.ericsson.se:3128
+
+# Allows controllers to reach NAS (IPv6 only)
+custom_controller_nicconfig: "../nic-configs/controller_4b.yaml"
+
+# External Network
+external_vlan_id: 734
+external_ipv6_gateway: 2001:1b70:82b9:24::1
+external_ipv6_subnet: 2001:1b70:82b9:24::/64
+external_ipv6_start: 2001:1b70:82b9:24::21
+external_ipv6_end: 2001:1b70:82b9:24::24
+
+# Internal API network
+internal_api_vlan_id: 866
+internal_api_ipv6_gateway: 2001:1b70:82b9:e::1
+internal_api_ipv6_subnet: 2001:1b70:82b9:e::/64
+internal_api_ipv6_start: 2001:1b70:82b9:e::E
+internal_api_ipv6_end: 2001:1b70:82b9:e::2F
+
+# Storage Network
+storage_subnet: 10.148.37.128/25
+storage_pool_start: 10.148.37.139
+storage_pool_end: 10.148.37.250
+storage_vlan_id: 869
+
+# Storage NFS - not needed
+storage_nfs_subnet: 10.148.35.0/25
+storage_nfs_pool_start: 10.148.35.20
+storage_nfs_pool_end: 10.148.35.120
+storage_nfs_vlan_id: 870
+
+# Storage Management Network
+# for storage management
+storage_mgmt_subnet: 10.148.35.128/25
+storage_mgmt_pool_start: 10.148.35.139
+storage_mgmt_pool_end: 10.148.35.250
+storage_mgmt_vlan_id: 871
+
+# Tenant Network
+tenant_subnet: 10.148.36.128/25
+tenant_pool_start: 10.148.36.139
+tenant_pool_end: 10.148.36.250
+tenant_vlan_id: 872
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 2001:1b70:82b9:24::15
+
+# Fixed IPv6 addresses
+controller_external_ipv6_ips:
+  - 2001:1b70:82b9:24::16
+  - 2001:1b70:82b9:24::17
+  - 2001:1b70:82b9:24::18
+controller_internal_ipv6_api_ips:
+  - 2001:1b70:82b9:e::B
+  - 2001:1b70:82b9:e::C
+  - 2001:1b70:82b9:e::D
+# Name of the storage pool to create on the VNX/Unity
+san_storage_pool: Cloud_4B_pool
+san_ip: 10.140.103.134
+san_user: bete
+san_password: "{{san_password}}"
+# SAN protocol: iSCSI or FC
+san_protocol: iSCSI
+# SAN ports:
+# iSCSI example: spa_iom_0_eth1,spb_iom_0_eth1,spa_iom_0_eth0,spb_iom_0_eth0
+# FC example: A-0,B-0,A-2,B-2
+san_ports: A-0-0,A-2-0,B-0-0,B-2-0
+
+# IP addresses for NFS shares
+glancenfs_ip_1: 10.144.20.30
+glancenfs_ip_2: 10.144.20.29
+gnochhinfs_ip_1: 10.144.20.29
+gnochhinfs_ip_2: 10.144.20.30
+cinderbackup_nfs_ip: 10.144.20.29
+nova_nfs_ip1: 10.144.20.30
+nova_nfs_ip2: 10.144.20.29
+# san_type must be either 'vnx' or 'unity'
+san_type: vnx
+san_backend_name: ieatvnx-174
+# NFS Share path
+# e.g. /glance for  10.10.10.123:/glance
+glance_share: /vx/cloud4b-images
+glance_staging_share: /vx/cloud4b-images-stage
+gnocchi_share: /vx/cloud4b-gnocchi
+cinder_backup_share: /vx/ericsson2-cinder_backup1/cloud4b
+nova_ephemeral_share: /vx/cloud4b-nova

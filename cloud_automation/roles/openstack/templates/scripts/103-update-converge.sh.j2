@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Change directory to where this script is located
+# Given the above assumption, all path are local ones
+cd $(dirname $(readlink -f $0))
+
+source ~/stackrc
+
+# Move to home folder to output the generared files during the deployment there
+cd ~/
+
+# Not possile to use "--environment-directory" due to https://bugzilla.redhat.com/show_bug.cgi?id=1593077
+
+openstack overcloud update converge \
+    --clear-parameter neutron::plugins::ml2::mechanism_driver \
+    --clear-parameter neutron::service_plugins \
+    --templates {{openstack_templates_directory}} \
+    --timeout 90 \
+    -n {{openstack_templates_directory}}/network-data.yaml \
+    -r {{openstack_overcloud_directory}}/roles-data.yaml \
+    -e {{openstack_overcloud_directory}}/nodes-info.yaml \
+    -e {{openstack_templates_directory}}/environments/debug.yaml \
+    -e {{openstack_templates_directory}}/environments/sshd-banner.yaml \
+    -e {{openstack_templates_directory}}/environments/network-isolation.yaml \
+    -e {{openstack_templates_directory}}/environments/host-config-and-reboot.yaml \
+    -e {{openstack_templates_directory}}/environments/services-docker/cinder-backup.yaml \
+    -e {{openstack_templates_directory}}/environments/services-docker/octavia.yaml \
+    -e {{openstack_templates_directory}}/environments/services-docker/barbican.yaml \
+    -e {{openstack_templates_directory}}/environments/compute-instanceha.yaml \
+    -e {{openstack_templates_directory}}/environments/barbican-backend-simple-crypto.yaml \
+    -e {{openstack_templates_directory}}/environments/disable-telemetry.yaml \
+    -e ~/overcloud_images.yaml \
+    -e {{openstack_env_directory}}/05-ssl-ca-cert.yaml \
+    -e {{openstack_env_directory}}/05-ssl-tls-cert.yaml \
+    -e {{openstack_env_directory}}/05-endpoints-public-dns.yaml \
+    -e {{openstack_env_directory}}/10-commons-parameters.yaml \
+    -e {{openstack_env_directory}}/20-network-environment.yaml \
+    -e {{openstack_env_directory}}/30-unity-storage-environment.yaml \
+    -e {{openstack_env_directory}}/30-nfs-storage-environment.yaml \
+    -e {{openstack_env_directory}}/40-fencing.yaml \
+    -e {{openstack_env_directory}}/50-keystone-admin-endpoint.yaml \
+    -e {{openstack_env_directory}}/60-openstack-neutron-custom-configs.yaml \
+    -e {{openstack_env_directory}}/65-openstack-nova-custom-configs.yaml \
+    -e {{openstack_env_directory}}/70-standard-performance.yaml \
+    -e {{openstack_env_directory}}/70-high-performance.yaml \
+    -e {{openstack_env_directory}}/99-extraconfig.yaml
+
+exit 0

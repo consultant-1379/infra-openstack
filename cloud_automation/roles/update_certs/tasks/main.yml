@@ -1,0 +1,83 @@
+- name: Copy CA Cert PEM file
+  copy:
+    src: root_and_intermediate_ca_certs.pem
+    dest: /etc/pki/ca-trust/source/anchors/ca.crt.pem
+    mode: 0444
+    owner: root
+    group: root
+    seuser: system_u
+    serole: object_r
+    setype: cert_t
+  tags:
+    - add_cert
+  register: add_new_ca
+
+- name: Add CA Cert PEM file to trusted CAs
+  shell: update-ca-trust extract
+  tags:
+    - add_cert
+  when: add_new_ca.changed # noqa 305 503
+
+- name: Backup original overcloud_endpoint.pem
+  copy:
+    src: /etc/pki/tls/private/overcloud_endpoint.pem
+    dest: /etc/pki/tls/private/overcloud_endpoint.pem.orig
+    remote_src: yes
+    mode: preserve
+  tags:
+    - add_cert
+
+- name: Get Openstack version
+  shell: "sed -r 's/.* ([0-9]+).*/\\1/g' /etc/rhosp-release"
+  args:
+    warn: False
+  register: openstack_version # noqa 301 303 305
+  run_once: yes
+  tags:
+    - add_cert
+    - rollback_cert
+
+- name: Create overcloud_endpoint.pem
+  template:
+    src: overcloud_endpoint.pem.j2
+    dest: /etc/pki/tls/private/overcloud_endpoint.pem
+    owner: root
+    group: '{{ "haproxy" if openstack_version.stdout|int == 13 else "root" }}'
+    mode: 0440
+    seuser: system_u
+    serole: object_r
+    setype: cert_t
+  tags:
+    - add_cert
+
+- name: Rollback to original certificate
+  copy:
+    src: /etc/pki/tls/private/overcloud_endpoint.pem.orig
+    dest: /etc/pki/tls/private/overcloud_endpoint.pem
+    remote_src: yes
+    mode: preserve
+  tags:
+    - rollback_cert
+
+- name: Restart HAproxy (Newton)
+  shell: pcs resource restart haproxy-clone
+  run_once: yes
+  when: openstack_version.stdout|int == 10 # noqa 305
+  tags:
+    - add_cert
+    - rollback_cert
+
+- name: Restart HAproxy (Queens or newer)
+  shell: pcs resource restart haproxy-bundle
+  when: openstack_version.stdout|int >= 13 # noqa 305
+  run_once: yes
+  tags:
+    - add_cert
+    - rollback_cert
+
+- name: Redetect cluster state (pcs resource cleanup)
+  shell: pcs resource cleanup
+  run_once: yes # noqa 301 305
+  tags:
+    - add_cert
+    - rollback_cert

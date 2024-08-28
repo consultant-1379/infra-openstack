@@ -1,0 +1,35 @@
+---
+- hosts: overcloud
+  gather_subset: network
+  become: yes
+
+  tasks:
+    - name: Insert setting to collect coredump on system crash
+      sysctl:
+        name: kernel.sysrq
+        value: '1'
+        sysctl_set: yes
+        sysctl_file: /etc/sysctl.conf
+        reload: yes
+      tags: enable_coredump
+
+    - name: Disable cloudinit network configuration
+      copy:
+        content: "network: {config: disabled}\n" 
+        dest: /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+        mode: 0644
+        group: root
+        owner: root
+      tags: disable_network
+
+    - block:
+        - name: Add rule to iptables for SSH access for monitoring setup
+          shell: 'iptables -I INPUT 6 -s 10.42.1.122/32 -p tcp -m multiport --dports 22 -m state --state NEW -m comment --comment "accept ssh for monitoring setup" -j ACCEPT'
+
+        - name: Save rule to make it persistent
+          shell: "/sbin/service iptables save"
+      tags: update_ip_tables
+    
+    - name: Set ring buffer size on traffic and storage interfaces
+      include: playbooks/ethtool-ring-buffer-sizes.yaml
+      tags: ring-buffer

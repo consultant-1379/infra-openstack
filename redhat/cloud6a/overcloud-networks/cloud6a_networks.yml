@@ -1,0 +1,71 @@
+networks:
+  - name: P0-OpStk-6A-Public-Tenant
+    vlan: 524
+    external: True
+    project: admin
+    shared: True
+  - name: P0-OpStk-6A-Public-Tenant2
+    vlan: 525
+    external: True
+    project: admin
+    shared: True
+  - name: Nova_Floating
+    vlan: 527
+    external: True
+    project: admin
+    shared: True
+subnets:
+  - name: P0-OpStk-6A-Public-Tenant_ipv4
+    network: P0-OpStk-6A-Public-Tenant
+    cidr: 10.232.157.0/24
+    gateway_ip: 10.232.157.1
+    start: 10.232.157.4
+    end: 10.232.157.254
+    enable_dhcp: True
+    ip_version: 4
+    dns_nameservers: [u'159.107.173.12']
+  - name: P0-OpStk-6A-Public-Tenant2_ipv4
+    network: P0-OpStk-6A-Public-Tenant2
+    cidr: 10.232.158.0/24
+    gateway_ip: 10.232.158.1
+    start: 10.232.158.4
+    end: 10.232.158.254
+    enable_dhcp: True
+    ip_version: 4
+    dns_nameservers: [u'159.107.173.12']
+  - name: Nova_Floating_ipv4
+    network: Nova_Floating
+    cidr: 10.232.159.0/24
+    gateway_ip: 10.232.159.1
+    start: 10.232.159.4
+    end: 10.232.159.254
+    enable_dhcp: True
+    ip_version: 4
+    dns_nameservers: []
+  - name: P0-OpStk-6A-Public-Tenant_ipv6
+    network: P0-OpStk-6A-Public-Tenant
+    cidr: 2001:1b70:82b9:a5::/64
+    gateway_ip: 2001:1b70:82b9:a5::0001
+    start: 2001:1b70:82b9:a5::1001:0001
+    end: 2001:1b70:82b9:a5::1008:ffff
+    enable_dhcp: False
+    ip_version: 6
+    dns_nameservers: []
+  - name: P0-OpStk-6A-Public-Tenant2_ipv6
+    network: P0-OpStk-6A-Public-Tenant2
+    cidr: 2001:1b70:82b9:a6::/64
+    gateway_ip: 2001:1b70:82b9:a6::0001
+    start: 2001:1b70:82b9:a6::1001:0001
+    end: 2001:1b70:82b9:a6::1008:ffff
+    enable_dhcp: False
+    ip_version: 6
+    dns_nameservers: []
+  - name: Nova_Floating_ipv6
+    network: Nova_Floating
+    cidr: 2001:1b70:82b9:a7::/64
+    gateway_ip: 2001:1b70:82b9:a7::0001
+    start: 2001:1b70:82b9:a7::1001:0001
+    end: 2001:1b70:82b9:a7::1008:ffff
+    enable_dhcp: True
+    ip_version: 6
+    dns_nameservers: []

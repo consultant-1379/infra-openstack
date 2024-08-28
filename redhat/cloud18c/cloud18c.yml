@@ -1,0 +1,210 @@
+---
+# Undercloud config
+# Proxy configuration
+use_proxy: False
+http_proxy: http://atproxy2.athtem.eei.ericsson.se:3128
+undercloud_fqdn: ieatrheldir18c.athtem.eei.ericsson.se
+# undercloud_public_ip should be on the ctlplane network
+undercloud_public_ip: 10.151.38.136
+undercloud_admin_host_ip: 10.151.38.137
+domain: athtem.eei.ericsson.se
+
+director_ctlplane_ip: 10.151.38.133
+# i.e. 25 for a 10.10.10.0/25 network
+control_plane_cidr_prefix: 25
+# i.e. include ip and subnet - 10.10.10.0/25
+provisioning_subnet: 10.151.38.128/25
+# director ctlplane IP address is outside of the DHCP range
+# number of DHCP IP addresses required is # of controllers + # of computes + 1 for DHCP agent on director
+provisioning_dhcp_start: 10.151.38.139
+provisioning_dhcp_end: 10.151.38.196
+# introspection IP address range  must not overlap with the DHCP range
+provisioning_introspection_start: 10.151.38.197
+provisioning_introspection_end: 10.151.38.253
+provisioning_gateway: 10.151.38.129
+
+# Version of redhat and rhosp to be used
+rhel_release: 9.2
+rhosp_release: 17.1
+# true or false
+use_ovn: 'false'
+
+
+# Overcloud config
+os_release: wallaby
+
+
+# Set instance_ha to True if  InstanceHA will be enabled on this deployment
+instance_ha: False
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname: cloud18c.athtem.eei.ericsson.se
+# Once the signed SSL certificate has been received, copy it and its private key into cloudX directory
+# SSL Certificate file name for the cloud
+# cloud_dir will be substituted when the start_deploy.sh script is run.
+# Enter the path like this: {{cloud_dir}}/cloudX.athtem.eei.ericsson.se.key
+ssl_cert: '{{cloud_dir}}/cloud18c.athtem.eei.ericsson.se.cer'
+# private key file name of the SSL Certificate
+ssl_cert_private_key: '{{cloud_dir}}/cloud18c.athtem.eei.ericsson.se.key'
+
+node_prefix: "cloud18c"
+
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password: "{{ipmi_password}}"
+pm_type: pxe_ipmitool
+
+#Enter boot_mode .... bios for blades or uefi for racks
+boot_mode: uefi
+
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  - 10.232.179.85
+  - 10.232.179.86
+  - 10.232.179.87
+
+# Set 'all_racks' to True if this deployment contains HPE rack servers
+all_racks: True
+
+# add the iLO IP address for each rack server
+ilos:
+  - 10.232.179.85
+  - 10.232.179.86
+  - 10.232.179.87
+  - 10.232.179.88
+  - 10.232.179.89
+  - 10.232.179.90
+  - 10.232.179.91
+  - 10.232.179.92
+  - 10.232.179.93
+  - 10.232.179.94
+  - 10.232.179.95
+  - 10.232.179.96
+  - 10.232.179.97
+  - 10.232.179.98
+  - 10.232.179.99
+  - 10.232.179.100
+  - 10.232.179.101
+  - 10.232.179.102
+
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+# If the deployment contains a mix of HPE and Dell servers set both is_hpe_deployment and is_dell_deployment
+# to True
+is_hpe_deployment: True
+is_dell_deployment: False
+# Network Configuration
+# Number of compute nodes
+compute_count: 15
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 0
+
+
+
+#True or False for 2tier mlag
+two_tier_mlag: True
+
+#True if NIC card used for both Traffic and Storage else False
+split_ports: True
+
+#if Traffic nics are active-active
+ovs_bond_option: active-active
+
+# External Network
+external_default_gateway: 10.151.45.129
+external_subnet: 10.151.45.128/25
+external_pool_start: 10.151.45.135
+external_pool_end: 10.151.45.137
+external_vlan_id: 110
+
+# Internal API network
+internal_api_subnet: 10.151.29.128/25
+internal_api_gateway: 10.151.29.129
+internal_api_pool_start: 10.151.29.140
+internal_api_pool_end: 10.151.29.252
+internal_api_vlan_id: 105
+
+# Storage Network
+storage_subnet: 10.151.68.128/25
+storage_gateway: 10.151.68.129
+storage_pool_start: 10.151.68.134
+storage_pool_end: 10.151.68.252
+storage_vlan_id: 117
+
+# Storage NFS Network
+storage_nfs_subnet: 10.151.66.0/25
+storage_nfs_gateway: 10.151.66.1
+storage_nfs_pool_start: 10.151.66.6
+storage_nfs_pool_end: 10.151.66.126
+storage_nfs_vlan_id: 119
+
+# Storage Management Network
+storage_mgmt_subnet: 10.151.59.128/25
+storage_mgmt_gateway: 10.151.59.129
+storage_mgmt_pool_start: 10.151.59.132
+storage_mgmt_pool_end: 10.151.59.253
+storage_mgmt_vlan_id: 118
+
+# Tenant Network
+tenant_subnet: 10.151.39.0/25
+tenant_pool_start: 10.151.39.10
+tenant_pool_end: 10.151.39.126
+tenant_vlan_id: 107
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 10.151.45.134
+
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  - 10.151.45.142
+  - 10.151.45.143
+  - 10.151.45.144
+
+
+#Flexos and nfs share details - required for routes
+storage_flexos_subnet: 10.232.248.0/24
+storage_mgmt_flexos_subnet: 10.232.249.0/24
+storage_nfs_share_subnet: 10.232.151.240/28
+
+san_storage_pool: PD01:PD01_FG01
+san_ip: 10.232.247.254
+san_user: admin
+san_password: "{{san_password}}"
+san_type: flexos
+san_backend_name: flexos
+mdm_ips:
+  - 10.232.248.254
+  - 10.232.249.254
+
+sdc_agent_version: 3.6
+
+glance_backend: file
+# enable or disable image volume caching true/false
+image_volume_cache: False
+
+# NFS Settings for non-ceph deployments
+
+# IP addresses for NFS shares
+glancenfs_ip_1: 10.232.151.245
+glancenfs_ip_2: 10.232.151.245
+gnochhinfs_ip_1: 10.232.151.245
+gnochhinfs_ip_2: 10.232.151.245
+cinderbackup_nfs_ip: 10.232.151.245
+nova_nfs_ip1: 10.232.151.245
+nova_nfs_ip2: 10.232.151.245
+
+
+# NFS Share path - add path to override the defaults, otherwise leave empty
+# e.g. /glance for  10.10.10.123:/glance
+# default share path is /glance
+glance_share: /Cloud18C_NFS_Glance
+# default share path is /glance_staging
+glance_staging_share: /Cloud18C_NFS_Staging
+# default share path is /cinder_backup
+cinder_backup_share: /Cloud18C_NFS_Cinder_Backup
+# default share path is /nova_ephemeral
+#nova_ephemeral_share: 

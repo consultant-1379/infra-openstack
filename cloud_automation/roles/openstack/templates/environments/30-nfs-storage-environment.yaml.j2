@@ -1,0 +1,66 @@
+parameter_defaults:
+
+  # List of enabled Image Import Methods. Valid values in the list are 'glance-direct' and 'web-download'
+  GlanceEnabledImportMethods: glance-direct, web-download
+  # URI that specifies the staging location to use when importing images
+  GlanceNodeStagingUri: file:///var/lib/glance/staging
+
+  # The short name of the Glance backend to use. Should be one of swift, rbd, cinder, or file
+  GlanceBackend: file
+  # NFS share to mount point for image storage
+  GlanceNfsMount: '/var/lib/glance/images'
+  # NFS mount options for image storage (when GlanceNfsEnabled is true)
+  {# The Veritas Access (VA) NFS server uses NFSv3. File systems on the VA start with /vx/ i.e. /vx/cloud6a-images -#}
+  {% set glance_nfs_version = "vers=3," if glance_share is defined and glance_share.startswith('/vx/') else "" -%}
+  {% if os_release == 'queens' -%}
+  GlanceNfsOptions: '{{ glance_nfs_version }}_netdev,bg,intr,context=system_u:object_r:glance_var_lib_t:s0'
+  {% else -%}
+  GlanceNfsOptions: '{{ glance_nfs_version }}_netdev,bg,intr,context=system_u:object_r:svirt_sandbox_file_t:s0'
+  {% endif -%}
+  # NFS share to mount for image storage
+  GlanceNfsFirstServer: '{{glancenfs_ip_1}}:{{glance_share | default("/glance")}}'
+  # NFS share to mount for image storage
+  GlanceNfsSecondServer: '{{glancenfs_ip_2}}:{{glance_share | default("/glance")}}'
+  # Boolean to enable or not NFS Session Trunking
+  # https://bugzilla.redhat.com/show_bug.cgi?id=1683207
+  GlanceNfsEnableTrunking: false
+
+  # NFS share to mount point for image storage
+  GlanceStagingNfsMount: '/var/lib/glance/staging'
+  # NFS mount options for NFS image import staging
+  {% set glance_staging_nfs_version = "vers=3," if glance_staging_share is defined and glance_staging_share.startswith('/vx/') else "" -%}
+  {% if os_release == 'queens' -%}
+  GlanceStagingNfsOptions: '{{ glance_staging_nfs_version }}_netdev,bg,intr,context=system_u:object_r:glance_var_lib_t:s0'
+  {% else -%}
+  GlanceStagingNfsOptions: '{{ glance_staging_nfs_version }}_netdev,bg,intr,context=system_u:object_r:svirt_sandbox_file_t:s0'
+  {% endif -%}
+  # NFS share to mount for image import staging
+  GlanceStagingNfsFirstServer: '{{glancenfs_ip_2}}:{{glance_staging_share | default("/glance_staging")}}'
+  # NFS share to mount for image import staging 
+  GlanceStagingNfsSecondServer: '{{glancenfs_ip_1|default("")}}:{{glance_staging_share | default("/glance_staging")}}'
+  # Boolean to enable or not NFS Session Trunking
+  # https://bugzilla.redhat.com/show_bug.cgi?id=1683207
+  GlanceStagingNfsEnableTrunking: false
+
+  {% set cinder_backup_nfs_version = "vers=3," if cinder_backup_share is defined and cinder_backup_share.startswith('/vx/') else "" -%}
+  # Cinder Backup backend can be either 'ceph', 'swift' or 'nfs'.
+  CinderBackupBackend: nfs
+  # NFS share to be mounted
+  CinderBackupNfsShare: '{{cinderbackup_nfs_ip}}:{{cinder_backup_share | default("/cinder_backup")}}'
+  # NFS mount options for backup storage
+  CinderBackupNfsMountOptions: '{{ cinder_backup_nfs_version }}_netdev,bg,intr,context=system_u:object_r:cinder_var_lib_t:s0'
+
+  {% if  nova_ephemeral_share is defined and nova_ephemeral_share -%}
+  {% set nova_nfs_version = "vers=3," if nova_ephemeral_share is defined and nova_ephemeral_share  and nova_ephemeral_share.startswith('/vx/') else "" -%}
+  # NFS share to mount point for nova ephemeral storage
+  NovaNfsMount: '/var/lib/nova/instances'
+  # NFS mount options for NFS nova ephemeral storage
+  NovaNfsOptions: '{{ nova_nfs_version }}context=system_u:object_r:nfs_t:s0'
+  # NFS share to mount for nova ephemeral storage
+  NovaNfsFirstServer: '{{nova_nfs_ip1}}:{{nova_ephemeral_share | default("/nova_ephemeral")}}'
+  # NFS share to mount for nova ephemeral storage
+  NovaNfsSecondServer: '{{nova_nfs_ip2}}:{{nova_ephemeral_share | default("/nova_ephemeral")}}'
+  # Boolean to enable or not NFS Session Trunking
+  # https://bugzilla.redhat.com/show_bug.cgi?id=1683207
+  NovaNfsEnableTrunking: false
+  {% endif -%}

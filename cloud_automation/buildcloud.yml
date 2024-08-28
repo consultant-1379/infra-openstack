@@ -1,0 +1,23 @@
+---
+
+- hosts: director
+  roles:
+    - common_settings
+    - role: director
+      tags:
+        - deploy_director
+    - common
+    - openstack
+    - role: ceph
+      tags:
+        - ceph
+    - role: unity
+      tags:
+        - unity
+    - role: 3par
+      tags:
+        - 3par
+    - role: flexos
+      tags:
+        - flexos
+  user: stack

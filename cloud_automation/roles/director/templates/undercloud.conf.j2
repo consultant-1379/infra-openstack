@@ -1,0 +1,51 @@
+[DEFAULT] 
+undercloud_hostname = {{ undercloud_fqdn }} 
+local_ip = {{ director_ctlplane_ip }}/{{control_plane_cidr_prefix}}
+undercloud_public_host = {{ undercloud_public_ip }}
+undercloud_admin_host = {{ undercloud_admin_host_ip }}
+undercloud_nameservers = {{ dns_servers | join(',') }} 
+undercloud_ntp_servers = {{ ntp_servers | join(',') }}
+{% if os_release == "train" %}
+overcloud_domain_name = {{ domain }}
+{% elif os_release == "wallaby" %}
+overcloud_domain_name = localdomain
+cleanup = false
+{% endif %}
+subnets = ctlplane-subnet 
+local_interface = enp2s0
+local_mtu = 1500 
+inspection_interface = br-ctlplane 
+inspection_extras = true 
+inspection_runbench = false 
+{% if os_release == "train" %}
+inspection_enable_uefi = true 
+{% endif %}
+enable_node_discovery = false 
+undercloud_debug = true 
+undercloud_update_packages = true 
+enable_tempest = true 
+enable_telemetry = false 
+enable_ui = true 
+enable_validations = true 
+enable_cinder = false 
+enable_novajoin = false 
+ipxe_enabled = true 
+scheduler_max_attempts = 30 
+{% if os_release == "wallaby" %}
+clean_nodes = true
+{% else %}
+clean_nodes = false
+{% endif %}
+ 
+enabled_hardware_types = ipmi,redfish,ilo,idrac 
+# RHOSP 16 specific
+container_cli = podman
+container_images_file=containers-prepare-parameter.yaml
+[auth] 
+[ctlplane-subnet] 
+cidr = {{provisioning_subnet}} 
+dhcp_start = {{provisioning_dhcp_start}}
+dhcp_end = {{provisioning_dhcp_end}}
+inspection_iprange = {{provisioning_introspection_start}},{{provisioning_introspection_end}}
+gateway = {{provisioning_gateway}}
+masquerade = true

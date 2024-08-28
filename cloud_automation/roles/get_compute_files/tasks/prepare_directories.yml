@@ -1,0 +1,20 @@
+---
+# tasks file for get_files
+   - name: Clean storepath Directory if exists
+     file:
+       path: "{{ store_path }}"
+       state: absent
+     connection: local
+     when: inventory_hostname == ansible_play_hosts[0]
+     tags:
+       - clean_directory
+
+   - name: Creates storepath directory
+     file:
+       path: "{{ store_path }}"
+       state: directory
+       mode: 0777
+     connection: local
+     when: inventory_hostname == ansible_play_hosts[0]
+     tags:
+       - create_directory

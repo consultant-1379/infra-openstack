@@ -1,0 +1,107 @@
+- name: Get iLO information from blades
+  block:
+  - name: Getting information from chassis
+    uri:
+      url: "https://{{oa_ip}}/xmldata?item=all"
+      return_content: yes
+      validate_certs: no
+      body_format: json
+      timeout: 300
+    register: blades
+    loop: "{{oa_ips}}"
+    loop_control:
+      loop_var: oa_ip
+      label: "{{oa_ip}}"
+
+  - name: Get iLO IP addresses from chassis response
+    xml:
+      xmlstring: "{{blade_result.content}}"
+      xpath: "/RIMP/INFRA2/BLADES/BLADE[{{blade_selector}}]/MGMTIPADDR"
+      content: text
+    register: oa
+    loop: "{{blades.results}}"
+    loop_control:
+      loop_var: blade_result
+      label: "Get iLOs"
+
+  - name: Get server names from chassis response
+    xml:
+      xmlstring: "{{blade_result.content}}"
+      xpath: "/RIMP/INFRA2/BLADES/BLADE[{{blade_selector}}]/NAME"
+      content: text
+    register: oa_names
+    loop: "{{blades.results}}"
+    loop_control:
+      loop_var: blade_result
+      label: "Get server names"
+
+  - name: Saving iLO IP addresses to ilos variable
+    set_fact:
+      ilos: "{{ilos|default([]) + ilo_match|map(attribute='MGMTIPADDR')|list}}"
+    loop: "{{oa.results| map(attribute='matches')|list}}"
+    loop_control:
+      loop_var: ilo_match
+      label: ""
+
+  - name: Saving server names
+    set_fact:
+      server_names: "{{server_names|default([]) + name_match|map(attribute='NAME')|map('regex_replace','\\.athtem.*','')|list }}"
+    loop: "{{oa_names.results| map(attribute='matches')|list}}"
+    loop_control:
+      loop_var: name_match
+      label: ""
+
+  - name: Check if controllers are rackmount servers
+    set_fact:
+      controllers_are_racks: "{{False if ctrl_ilo_ips| intersect(ilos) else True }}"
+
+  - debug:
+      msg: "Controllers are {{ '' if controllers_are_racks else 'not ' }}rack servers."
+
+  - name: Add Controller iLO IP addresses to the ilos list
+    set_fact:
+      ilos: "{{ilos + ctrl_ilo_ips | unique}}"
+    when: controllers_are_racks
+  when: not all_racks
+
+
+- name: Get server names for rack server names
+  set_fact:
+    server_names: "{{server_names | default([])  + [ lookup('dig', ilo_ip + '/PTR','@159.107.173.3').split('.')|first ]}}"
+  loop: "{{ilos}}"
+  loop_control:
+    loop_var: ilo_ip
+    label: "{{ilo_ip}}"
+  when: all_racks
+
+- name: Add Controller server names for rack servers
+  set_fact:
+    server_names: "{{server_names | default([])  + [ lookup('dig', ctrl_ilo_ip + '/PTR','@159.107.173.3').split('.')|first ]}}"
+  loop: "{{ctrl_ilo_ips}}"
+  loop_control:
+    loop_var: ctrl_ilo_ip
+    label: "{{ctrl_ilo_ip}}"
+  when: controllers_are_racks is defined and controllers_are_racks and not all_racks
+
+- name: Get information from HP iLO
+  hpilo_facts:
+    host: "{{ilo_ip}}"
+    login: "{{pm_user}}"
+    password: "{{pm_password}}"
+  loop: "{{ilos}}"
+  loop_control:
+    loop_var: ilo_ip
+    label: "{{ilo_ip}}"
+  register: macs
+
+- name: Save MAC addresses in mac_addresses variable
+  set_fact:
+    mac_addresses: "{{macs.results| map(attribute='ansible_facts')|map(attribute=pxe_interface | default('hw_eth0'))|map(attribute='macaddress')|list}}"
+
+- name: Build nodes list
+  set_fact:
+    nodes: "{{ nodes|default([]) + [{'ilo_ip': node.0,'name':node.1, 'comment':'','capabilities':'','mac':node.2} ] }}"
+  loop: "{{ ilos| zip(server_names,mac_addresses)|list}}"
+  loop_control:
+    loop_var: node
+    label: "{{node.0}}"

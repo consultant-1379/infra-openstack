@@ -1,0 +1,131 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+---
+network_config:
+- type: ovs_bridge
+  name: br-ex
+  mtu: 9000
+  use_dhcp: false
+  dns_servers: {% raw %}{{ ctlplane_dns_nameservers }}{% endraw %}
+
+  domain: {% raw %}{{ dns_search_domains }}{% endraw %}
+
+  members:
+  - type: ovs_bond
+    name: bond0
+    ovs_options: {% raw %}{{ bond_interface_ovs_options }}{% endraw %}
+
+    members:
+    {% if split_ports == True %}
+    - type: interface
+      name: nic1
+      mtu: 9000
+      primary: true
+    - type: interface
+      name: nic3
+      mtu: 9000
+    {% else %}
+    - type: interface
+      name: nic1
+      mtu: 9000
+      primary: true
+    - type: interface
+      name: nic2
+      mtu: 9000
+    {% endif %}
+  - type: vlan
+    mtu: 9000
+    vlan_id: {% raw %}{{ tenant_vlan_id }}{% endraw %}
+
+    addresses:
+    - ip_netmask: {% raw %}{{ tenant_ip }}/{{ tenant_cidr }}{% endraw %}
+
+  - type: vlan
+    mtu: 9000
+    vlan_id: {% raw %}{{ internal_api_vlan_id }}{% endraw %}
+
+    addresses:
+    - ip_netmask: {% raw %}{{ internal_api_ip }}/{{ internal_api_cidr }}{% endraw %}
+
+  - type: vlan
+    vlan_id: {% raw %}{{ external_vlan_id }}{% endraw %}
+
+    mtu: 1500
+    addresses:
+    - ip_netmask: {% raw %}{{ external_ip }}/{{ external_cidr }}{% endraw %}
+
+    routes:
+    - default: true
+      next_hop: {% raw %}{{ external_gateway_ip }}{% endraw %}
+
+  addresses:
+  - ip_netmask: {% raw %}{{ ctlplane_ip }}/{{ ctlplane_subnet_cidr }}{% endraw %}
+
+  routes:
+  - ip_netmask: 169.254.169.254/32
+    next_hop: {% raw %}{{ director_ctlplane_ip }}{% endraw %}
+
+- type: linux_bond
+  name: bond1
+  mtu: 9000
+  bonding_options: {% raw %}{{ bond_storage_interface_options }}{% endraw %}
+
+  members:
+  {% if split_ports == True %}
+  - type: interface
+    name: nic2
+    mtu: 9000
+    primary: true
+  - type: interface
+    name: nic4
+    mtu: 9000
+  {% else %}
+  - type: interface
+    name: nic3
+    mtu: 9000
+    primary: true
+  - type: interface
+    name: nic4
+    mtu: 9000
+  {% endif %}
+- type: vlan
+  mtu: 9000
+  device: bond1
+  vlan_id: {% raw %}{{ storage_vlan_id }}{% endraw %}
+
+  addresses:
+  - ip_netmask: {% raw %}{{ storage_ip }}/{{ storage_cidr }}{% endraw %}
+
+  {% if san_type == "flexos" %}
+  routes:
+  - ip_netmask: {{ storage_flexos_subnet }}
+    next_hop: {{ storage_gateway }}
+  {% endif %}
+- type: vlan
+  mtu: 9000
+  device: bond1
+  vlan_id: {% raw %}{{ storage_mgmt_vlan_id }}{% endraw %}
+
+  addresses:
+  - ip_netmask: {% raw %}{{ storage_mgmt_ip }}/{{ storage_mgmt_cidr }}{% endraw %}
+
+  {% if san_type == "flexos" %}
+  routes:
+  - ip_netmask: {{ storage_mgmt_flexos_subnet }}
+    next_hop: {{ storage_mgmt_gateway }}
+  {% endif %}
+
+  {% if glance_backend == "file" %}
+- type: vlan
+  mtu: 9000
+  device: bond1
+  vlan_id: {% raw %}{{ storage_nfs_vlan_id }}{% endraw %}
+
+  addresses:
+  - ip_netmask: {% raw %}{{ storage_nfs_ip }}/{{ storage_nfs_cidr }}{% endraw %}
+
+  {% if san_type == "flexos" %}
+  routes:
+  - ip_netmask: {{ storage_nfs_share_subnet }}
+    next_hop: {{ storage_nfs_gateway }}
+  {% endif %}
+  {% endif %}

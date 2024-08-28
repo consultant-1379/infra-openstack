@@ -1,0 +1,89 @@
+---
+- name: Get os-net-config nic mapping
+  shell: os-net-config -i
+  register: os_net_config_info
+
+# In RHEL 8.2 the output of the os-net-config -i command is
+# a dictionary but with keys and values enclosed in single_quotes.
+# e.g "{'nic3': 'ens10f0', 'nic2': 'ens2f1', 'nic4': 'ens10f1', 'nic1': 'ens2f0'}"
+# The single quotes have to be removed so that nic_info is a dictionary.
+- name: Save os-net-config nic mapping as a dictionary
+  set_fact:
+    nic_info: "{{ os_net_config_info.stdout | replace(single_quote,'') }}"
+  vars:
+    single_quote: "'"
+
+- name: Save list of nic names
+  set_fact:
+    nic_list: '{{ nic_info.keys() | sort }}'
+
+- name: Print nic_info
+  debug:
+    var: nic_info
+
+- name: Get RX and TX ring buffer sizes
+  shell: "ethtool -g {{ nic_info[nic] }}"
+  loop: '{{ nic_list }}'
+  loop_control:
+    loop_var: nic
+    label: '{{ nic }} ({{ nic_info[nic] }})'
+  register: ethtool
+
+- name: Save ring buffer maximum sizes
+  set_fact:
+    nic_buffers: '{{ nic_buffers| default({}) | combine({item.nic: { "rx": rx_buffer, "tx": tx_buffer}})}}'
+  vars:
+    rx_buffer: '{{ item.stdout_lines | select("match","^RX:") | first | regex_replace("RX:\t\t","") }}'
+    tx_buffer: '{{ item.stdout_lines | select("match","^TX:") | first | regex_replace("TX:\t\t","") }}'
+  loop: "{{ ethtool.results }}"
+  loop_control:
+    label: '{{ item.nic }} ({{ nic_info[item.nic] }})'
+
+- name: Print nic ring buffers
+  debug:
+    var: nic_buffers
+
+- name: Write nic ring buffers to a file
+  copy:
+    content: |
+      {{ nic_buffers }}
+    dest: /tmp/nic_buffers.json
+
+- name: Copy update_net_config.py and nic_buffers.json to server
+  copy:
+    src:  update_net_config.py
+    dest: /tmp/update_net_config.py
+
+- name: Update config.json with new ring buffers
+  command: python3 /tmp/update_net_config.py /etc/os-net-config/config.json /tmp/nic_buffers.json
+
+- name: Run os-net-config script on each server
+  command: os-net-config -c /etc/os-net-config/config.json
+
+- name: Read updated config.json from server
+  slurp:
+    path: /etc/os-net-config/config.json
+  register: updated_config_file
+
+- name: Save updated config.json to a variable
+  set_fact:
+    updated_config: '{{ updated_config_file["content"] | b64decode | from_json}}'
+
+- name: Get Storage VLANs
+  set_fact:
+    storage_vlan_command: '{{ storage_vlan_command| default("") + "ifup vlan" + vlan|string + ";" }}'
+  loop: '{{ updated_config["network_config"] | selectattr("type","eq","vlan") | map(attribute="vlan_id") | list }}'
+  loop_control:
+    loop_var: vlan
+    label: 'vlan{{ vlan }}'
+
+- name: Run ifup on all storage interfaces
+  shell: "{{ storage_vlan_command }}"
+
+- name: Cleanup temporary files
+  file:
+    path: '/tmp/{{ item }}'
+    state: absent
+  loop:
+    - nic_buffers.json
+    - update_net_config.py

@@ -1,0 +1,20 @@
+---
+  switches:
+    distribution:
+      host:
+        - name: [ieatp9sd001, ieatp0ds001]
+    storage:
+      host:
+        - name: [ieatp9st019, ieatp9st020]
+          untag_ports: [49,50,51,52]
+          tag_ports: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]
+    edge:
+      host:
+        - name: [ieatp0es035, ieatp0es036]
+          director_ports: [13,14]
+          untag_ports: []
+          tag_ports: ['1g','5g']
+          lacp_ports: [1,2,3,4,5,6,7,8]
+  vars: {st_sd_vlans: [{'P9-OpStk-10-Storage': '414'}, {'P9-OpStk-10-Storage-Mgt': '415'}, {'P9-OpStk-10-Storage-NFS': '416'}],
+          es_vlans: [{'P0-OpStk-10-Tenant-VXLAN': '472'}, {'P0-OpStk-10-Internal-API': '469'}, {'P0-OpStk-10-Provisioning': '470'},
+                      {'P0-OpStk-10-Ext-Floating': '474'}, {'P0-OpStk-10-ECN-Access1': '475'}]}

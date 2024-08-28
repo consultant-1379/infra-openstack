@@ -1,0 +1,57 @@
+---
+- hosts: Compute
+  gather_facts: no
+  become: yes
+  vars:
+    max_limit: 0.95
+    max_vm_size: 64
+    min_vm_size: 16
+
+  tasks:
+    - name: Get server groups
+      shell: source /home/stack/overcloudrc; openstack server group list --all-projects --long -f json
+      register: server_groups
+      delegate_to: director
+      run_once: yes
+
+    - name: Get used and total memory
+      shell:  free -m | awk '/Mem/{ print $2, $3}'
+      register: results
+
+    - set_fact:
+        all_hosts: '{{ all_hosts| default([]) + [{ "host_name": myhost, "total_memory": hostvars[myhost]["results"].stdout.split()[0], "used_memory": hostvars[myhost]["results"].stdout.split()[1], "percent_used": hostvars[myhost]["results"].stdout.split()[1] | float / hostvars[myhost]["results"].stdout.split()[0] | float  }] }}'
+      delegate_to: localhost
+      run_once: yes
+      loop: '{{ ansible_play_hosts }}'
+      loop_control:
+        loop_var: myhost
+        label: '{{ myhost }}'
+
+    - set_fact:
+        hosts_over_limit: '{{hosts_over_limit | default([]) + [host.host_name]}}'
+      run_once: yes
+      loop: '{{all_hosts}}'
+      loop_control:
+        loop_var: host
+        label: '{{host.host_name}}'
+      when: host.percent_used >= max_limit
+
+    - block:
+        - include: most_used_vms.yaml
+
+        - name: Get valid hosts
+          process_data:
+            all_hosts: '{{all_hosts}}'
+            servers: '{{validated_vms["servers"]}}'
+            anti_affinity_hosts: '{{anti_affinity_hosts | default([])}}'
+            active_host: '{{inventory_hostname}}'
+          register: recommended_hosts
+      when: hosts_over_limit is defined and inventory_hostname in hosts_over_limit
+
+    - name: Save recommended hosts to a file.
+      template:
+        src: recommended_host_list.txt.j2
+        dest: recommended_host_list.txt
+      delegate_to: localhost
+      run_once: yes
+      when: '"skipped" not in recommended_hosts'

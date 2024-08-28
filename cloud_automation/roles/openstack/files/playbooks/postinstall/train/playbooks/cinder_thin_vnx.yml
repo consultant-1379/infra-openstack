@@ -1,0 +1,22 @@
+---
+- name: Check if Thin volume type exist
+  shell: source /home/stack/overcloudrc; openstack volume type show Thin -f value -c properties
+  register: results
+  delegate_to: localhost
+  become: no
+  ignore_errors: True
+
+- block:
+    - name: Create Thin Provisioning cinder-type in overcloud
+      delegate_to: localhost
+      become: no
+      shell: "source ~/overcloudrc; cinder type-create 'Thin'; cinder type-key 'Thin' set provisioning:type=thin thin_provisioning_support='<is> True'"
+      run_once: true
+
+    - name: VNX Thin default type
+      ini_file:
+        path: /var/lib/config-data/puppet-generated/cinder/etc/cinder/cinder.conf
+        section: DEFAULT
+        option: default_volume_type
+        value: Thin
+  when: "'FAILED' in results.stderr"

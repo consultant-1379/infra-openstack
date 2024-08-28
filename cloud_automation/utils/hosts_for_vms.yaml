@@ -1,0 +1,14 @@
+---
+  - block:
+      - name: Get a host for each VM
+        shell: source /home/stack/overcloudrc; openstack server show {{vm}} -f value -c OS-EXT-SRV-ATTR:hypervisor_hostname
+        register: anti_affinity_vm_hosts
+        loop: '{{vm_list.values() | flatten}}'
+        loop_control:
+          loop_var: vm
+        delegate_to: director
+
+      - set_fact:
+          anti_affinity_hosts: '{{anti_affinity_hosts | default([]) + [{"vm_uuid": vm_list.keys()[0], "hosts": anti_affinity_vm_hosts.results | map(attribute="stdout") |list }] }}'
+
+    when: vm_list.values() | flatten | length > 1

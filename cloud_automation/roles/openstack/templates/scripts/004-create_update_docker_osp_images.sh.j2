@@ -1,0 +1,82 @@
+#!/bin/bash
+# source common functions
+. common.bsh
+
+# Change directory to where this script is located
+# Given the above assumption, all path are local ones
+cd $(dirname $(readlink -f $0))
+
+{% if use_proxy %}
+export HTTP_PROXY=${http_proxy}
+export HTTPS_PROXY=${http_proxy}
+export no_proxy={{director_ctlplane_ip}},127.0.0.8/8,localhost
+{% endif %}
+
+source ~/stackrc
+
+if [[ -e {{openstack_overcloud_directory}}/local_registry_images.yaml && {{openstack_overcloud_directory}}/overcloud_images.yaml ]]; then
+    echo "Do you want to use the existing {{openstack_overcloud_directory}}/overcloud_images.yaml and {{openstack_overcloud_directory}}/local_registry_images.yaml "
+    select answer in "yes" "no"
+    do
+      if [[ "${answer}" == "no" || "${answer}" == "yes" ]]; then
+        use_existing=${answer}
+        break;
+      fi
+    done
+fi
+if [[ "${use_existing}" == "no" ]];then 
+sudo -E openstack overcloud container image prepare \
+  --namespace=registry.access.redhat.com/rhosp13 \
+  --push-destination={{director_ctlplane_ip}}:8787 \
+  --prefix=openstack- \
+  --tag-from-label {version}-{release} \
+  --set ceph_namespace=registry.access.redhat.com/rhceph \
+  --set ceph_image=rhceph-3-rhel7 \
+  --output-env-file={{openstack_overcloud_directory}}/overcloud_images.yaml \
+  --output-images-file {{openstack_overcloud_directory}}/local_registry_images.yaml \
+  -e {{openstack_templates_directory}}/environments/debug.yaml \
+  -e {{openstack_templates_directory}}/environments/sshd-banner.yaml \
+  -e {{openstack_templates_directory}}/environments/network-isolation.yaml \
+  -e {{openstack_templates_directory}}/environments/host-config-and-reboot.yaml \
+  -e {{openstack_templates_directory}}/environments/services-docker/cinder-backup.yaml \
+  -e {{openstack_templates_directory}}/environments/services-docker/octavia.yaml \
+  -e {{openstack_templates_directory}}/environments/services-docker/barbican.yaml \
+  -e {{openstack_templates_directory}}/environments/compute-instanceha.yaml \
+  -e {{openstack_templates_directory}}/environments/barbican-backend-simple-crypto.yaml \
+  -e {{openstack_templates_directory}}/environments/disable-telemetry.yaml \
+  -e {{openstack_env_directory}}/05-ssl-ca-cert.yaml \
+  -e {{openstack_env_directory}}/05-ssl-tls-cert.yaml \
+  -e {{openstack_env_directory}}/05-endpoints-public-dns.yaml \
+  -e {{openstack_env_directory}}/10-commons-parameters.yaml \
+  -e {{openstack_env_directory}}/20-network-environment.yaml \
+{% if san_type == 'unity' or san_type == 'vnx' %}
+  -e {{openstack_env_directory}}/30-unity-storage-environment.yaml \
+{% elif san_type == '3par' %}
+  -e {{openstack_env_directory}}/30-3par-storage-environment.yaml \
+{% else %}
+  -e {{openstack_env_directory}}/30-ceph-storage-environment.yaml \
+{% endif %}
+  -e {{openstack_env_directory}}/40-fencing.yaml \
+  -e {{openstack_env_directory}}/50-keystone-admin-endpoint.yaml \
+  -e {{openstack_env_directory}}/60-openstack-neutron-custom-configs.yaml \
+  -e {{openstack_env_directory}}/65-openstack-nova-custom-configs.yaml \
+  -e {{openstack_env_directory}}/70-standard-performance.yaml \
+  -e {{openstack_env_directory}}/70-high-performance.yaml \
+  -e {{openstack_env_directory}}/99-extraconfig.yaml || abort "Error running openstack overcloud container image prepare"
+fi
+
+# due to https://bugzilla.redhat.com/show_bug.cgi?id=1597646
+sudo chown stack:stack {{openstack_overcloud_directory}}/local_registry_images.yaml
+
+info "Pushing docker images to the local registry {{director_ctlplane_ip}}:8787."
+sudo -E openstack overcloud container image upload \
+  --config-file  {{openstack_overcloud_directory}}/local_registry_images.yaml \
+  --verbose  || abort "Error pushing images to the local docker registry {{director_ctlplane_ip}}:8787."
+
+# due to https://bugzilla.redhat.com/show_bug.cgi?id=1597646
+sudo chown stack:stack {{openstack_overcloud_directory}}/overcloud_images.yaml
+
+curl -s {{director_ctlplane_ip}}:8787/v2/_catalog|jq .
+
+
+exit 0

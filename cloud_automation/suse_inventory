@@ -1,0 +1,1 @@
+suse_clm ansible_host=<CLM IP address> ansible_user=ardana

@@ -1,0 +1,3 @@
+#!/bin/bash
+[[ -e ~/stackrc ]] && echo "Undercloud already installed skipping..." && exit 0
+openstack undercloud install |& tee -a /var/tmp/undercloud_install.$(date -Iseconds).log

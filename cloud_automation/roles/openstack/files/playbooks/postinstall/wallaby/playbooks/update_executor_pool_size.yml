@@ -1,0 +1,36 @@
+---
+  - name: Set OSP  executor_thread_pool_size
+    ini_file:
+      path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/{{ item }}/{{ item }}.conf"
+      section: DEFAULT
+      option: executor_thread_pool_size
+      value: 200
+      backup: yes
+    with_items: "{{ osp_services + osp}}"
+
+  - name: Set glance executor_thread_pool_size
+    ini_file:
+      path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/glance/glance-api.conf"
+      section: DEFAULT
+      option: executor_thread_pool_size
+      value: 200
+      backup: yes
+    with_items: "{{ glance_services }}"
+
+  - name: Set heat executor_thread_pool_size
+    ini_file:
+      path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/heat/heat.conf"
+      section: DEFAULT
+      option: executor_thread_pool_size
+      value: 200
+      backup: yes
+    with_items: "{{ heat_services }}"
+
+  - name: Set nova executor_thread_pool_size
+    ini_file:
+      path: "/var/lib/config-data/puppet-generated/{{ item }}/etc/nova/nova.conf"
+      section: DEFAULT
+      option: executor_thread_pool_size
+      value: 200
+      backup: yes
+    with_items: "{{ nova_services }}"

@@ -1,0 +1,50 @@
+---
+  - name: Get total memory in mb from ansible facts
+    setup:
+      filter: ansible_memtotal_mb
+
+  - name: Set buffer_pool_size to the lesser of 20% of RAM or 100GB
+    set_fact:
+      buffer_pool_size: "{{ [(((ansible_memtotal_mb|float)*0.2)/1024)|round|int, 100]|min }}"
+  
+  - name: "Ensure MySQL InnoDB 'innodb_buffer_pool_size' at {{buffer_pool_size}}G"
+    ini_file:
+      path: /var/lib/config-data/puppet-generated/mysql/etc/my.cnf.d/galera.cnf
+      section: mysqld
+      option: innodb_buffer_pool_size
+      value: "{{buffer_pool_size}}G"
+
+  - name: Ensure MySQL InnoDB equally divided in 1GB instances
+    ini_file:
+      path: /var/lib/config-data/puppet-generated/mysql/etc/my.cnf.d/galera.cnf
+      section: mysqld
+      option: innodb_buffer_pool_instances
+      value: "{{buffer_pool_size}}"
+
+  - name: Ensure MySQL disk flush using O_DIRECT
+    ini_file:
+      path: /var/lib/config-data/puppet-generated/mysql/etc/my.cnf.d/galera.cnf
+      section: mysqld
+      option: innodb_flush_method
+      value: O_DIRECT
+
+  - name: Ensure MySQL 'net_write_timeout' at 600 seconds
+    ini_file:
+      path: /var/lib/config-data/puppet-generated/mysql/etc/my.cnf.d/galera.cnf
+      section: mysqld
+      option: net_write_timeout
+      value: 600
+
+  - name: Ensure MySQL 'net_read_timeout' at 600 seconds
+    ini_file:
+      path: /var/lib/config-data/puppet-generated/mysql/etc/my.cnf.d/galera.cnf
+      section: mysqld
+      option: net_read_timeout
+      value: 600
+
+  - name: Ensure MySQL 'connect_timeout' at 28800 seconds
+    ini_file:
+      path: /var/lib/config-data/puppet-generated/mysql/etc/my.cnf.d/galera.cnf
+      section: mysqld
+      option: connect_timeout
+      value: 28800

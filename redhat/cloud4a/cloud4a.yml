@@ -1,0 +1,135 @@
+---
+# Fully qualified domain name of the overcloud. This is the domain name for public_vip This is the domain used for Horizon URL.
+cloudname: cloud4a.athtem.eei.ericsson.se
+# Once the signed SSL certificate has been received, copy it and its private key into roles/common/files
+# SSL Certificate file name for the cloud
+# ssl_cert: /home/dylan/dylan/infra-openstack/redhat/cloud4a/cloud4a.athtem.eei.ericsson.se.cer
+ssl_cert: "{{ cloud_dir }}/cloud4a.athtem.eei.ericsson.se.cer"
+# private key file name of the SSL Certificate
+# ssl_cert_private_key: /home/dylan/dylan/infra-openstack/redhat/cloud4a/cloud4a.athtem.eei.ericsson.se.key
+ssl_cert_private_key: "{{ cloud_dir }}/cloud4a.athtem.eei.ericsson.se.key"
+
+# IPMI credentials for individual servers
+pm_user: cloud
+pm_password: "{{ipmi_password}}"
+pm_type: ipmi
+
+chassis_half: top
+
+#
+node_prefix: "{{cloudname.split('.')|first}}"
+os_release: queens
+# iLO/iDRAC IP addresses of the controller nodes
+# When generating the instackenv.json (RHOSP) or servers.yml (SuSE) the corresponding
+# servers will be tagged as controllers. The remaining servers will be tagged as compute nodes.
+ctrl_ilo_ips:
+  - 10.151.40.114
+  - 10.151.41.23
+  - 10.151.42.19
+
+# List of OA IP addresses for deployments where all servers are HPE blades or
+# where the controllers are Dell rack servers and the computes are HPE blades.
+oa_ips: 
+  - 10.151.40.12
+  - 10.151.41.10
+  - 10.151.41.56
+  - 10.151.43.217
+
+# Set one of these variables to 'True' depending your deployment type HPE or Dell servers
+is_hpe_deployment: True
+is_dell_deployment: False
+# Network Configuration
+# Number of compute nodes
+compute_count: 29
+# Number of controller nodes
+controller_count: 3
+# Start of the allocation pool for each network
+pool_start: 0
+
+director_ctlplane_ip: 10.148.32.9
+control_plane_cidr_prefix: 25
+# Proxy configuration
+use_proxy: False
+http_proxy: http://atproxy2.athtem.eei.ericsson.se:3128
+
+# External Network
+external_default_gateway: 131.160.194.65
+external_subnet: 131.160.194.64/26
+external_pool_start: 131.160.194.97
+external_pool_end: 131.160.194.100
+external_vlan_id: 734
+
+# Internal API network
+internal_api_subnet: 10.148.31.128/25
+internal_api_pool_start: 10.148.31.138
+internal_api_pool_end: 10.148.31.250
+internal_api_vlan_id: 856
+
+# Storage Network
+storage_subnet: 10.148.37.0/25
+storage_pool_start: 10.148.37.11
+storage_pool_end: 10.148.37.120
+storage_vlan_id: 859
+
+# Storage NFS - To update
+storage_nfs_subnet: 10.148.33.0/25
+storage_nfs_pool_start: 10.148.33.20
+storage_nfs_pool_end: 10.148.33.120
+storage_nfs_vlan_id: 860
+
+# Storage Management Network
+storage_mgmt_subnet: 10.148.33.128/25
+storage_mgmt_pool_start: 10.148.33.138
+storage_mgmt_pool_end: 10.148.33.250
+storage_mgmt_vlan_id: 861
+
+# Tenant Network
+tenant_subnet: 10.148.32.128/25
+tenant_pool_start: 10.148.32.138
+tenant_pool_end: 10.148.32.250
+tenant_vlan_id: 862
+
+# VIPs
+# VIP corresponding to cloudname domain name
+public_vip: 131.160.194.105
+
+# Fixed IPs (i.e. not from Pool)
+controller_external_ips:
+  - 131.160.194.106
+  - 131.160.194.107
+  - 131.160.194.108
+
+# Fixed IPv6 addresses
+#controller_external_ipv6_ips:
+#controller_internal_ipv6_api_ips:
+# Name of the storage pool to create on the VNX/Unity
+san_storage_pool: Cloud_4A_pool
+san_ip: 10.151.43.248
+san_user: bete
+san_password: "{{san_password}}"
+# SAN protocol: iSCSI or FC
+san_protocol: iSCSI
+# SAN ports:
+# iSCSI example: spa_iom_0_eth1,spb_iom_0_eth1,spa_iom_0_eth0,spb_iom_0_eth0
+# FC example: A-0,B-0,A-2,B-2
+san_ports: A-12-0,A-14-0,B-12-0,B-14-0
+
+# IP addresses for NFS shares
+glancenfs_ip_1: 10.144.20.29
+glancenfs_ip_2: 10.144.20.30
+gnochhinfs_ip_1: 10.144.20.30
+gnochhinfs_ip_2: 10.144.20.29
+cinderbackup_nfs_ip: 10.144.20.30
+nova_nfs_ip1: 10.144.20.29
+nova_nfs_ip2: 10.144.20.30
+# san_type must be either 'vnx' or 'unity'
+san_type: vnx
+san_backend_name: ieatvnx-76
+
+# NFS Share path
+# e.g. /glance for  10.10.10.123:/glance
+glance_share: /vx/cloud4a-images
+glance_staging_share: /vx/cloud4a-images-stage
+gnocchi_share: /vx/cloud4a-gnocchi
+cinder_backup_share: /vx/ericsson2-cinder_backup1/cloud4a
+nova_ephemeral_share: /vx/cloud4a-nova

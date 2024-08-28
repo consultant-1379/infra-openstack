@@ -1,0 +1,24 @@
+---
+  - name: Gather backup and volume settings
+    shell: pcs status |tr -d '*'| grep '^[[:blank:]]*openstack-cinder' | awk '{print $1, $4}'
+    register: gather_result
+    ignore_errors: true
+
+  # gather_results length should be 2
+  - name: Combine cinder backup results to a dictionary
+    set_fact:
+      cinder_backup_results: "{{ cinder_backup_results | default({}) | combine({inventory_hostname:{'expected': 'exactly 2 values' if gather_result.stdout_lines | length !=2 else '', 'actual': gather_result.stdout_lines if gather_result.stdout_lines | length !=2 else ''}}) }}"
+
+  - block:
+    - name:  add section heading
+      shell: |
+         echo "
+         ****backup and volume section******" >> {{ settings_store_path }}{{ inventory_hostname }}-parsed-settings
+
+    - name: save backup and volume settings to file
+      shell: echo "{{item}}" | sed 's/^[ \t]*//;s/[ \t]*$//' >> {{ settings_store_path }}/{{ inventory_hostname }}-parsed-settings
+      loop: "{{wrong_settings}}"
+    ignore_errors: yes
+    connection: local
+    become: no
+    when: gather_result.stdout_lines | length !=2

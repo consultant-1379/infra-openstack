@@ -1,0 +1,33 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    stack_home: /home/stack
+  tasks:
+    - name: Create compute and control aliases for logging into overcloud
+      file:
+        path: '{{stack_home}}/bin/{{item}}'
+        src: '{{stack_home}}/bin/execssh.py'
+        group: stack
+        state: link
+        mode: 0777
+        owner: stack
+      loop:
+        - compute
+        - control
+
+    - name: Append RC file aliases to .bashrc
+      lineinfile:
+        path: '{{stack_home}}/.bashrc' 
+        state: present
+        insertafter: EOF
+        line: |
+          # User specific aliases and functions
+          alias strc='source /home/stack/stackrc'
+          alias ocrc='source /home/stack/overcloudrc'
+          function ansctrl() { /usr/bin/ansible -i /home/stack/ansible/inventory.yaml -m shell -a "$1" -b Controller $2 ; }
+          function anscomp() { /usr/bin/ansible -i /home/stack/ansible/inventory.yaml -m shell -a "$1" -b Compute $2 ; }
+          function ansover() { /usr/bin/ansible -i /home/stack/ansible/inventory.yaml -m shell -a "$1" -b overcloud ; }
+          alias errvols='openstack volume list -f value -c ID -c Nanme -c Status | egrep -v "in-use|available" '
+          alias allerrvols='ocrc ; openstack volume list --all -f value -c ID -c Name -c Status | egrep -v "in-use|available" '

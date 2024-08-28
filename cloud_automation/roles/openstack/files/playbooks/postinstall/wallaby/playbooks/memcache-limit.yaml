@@ -1,0 +1,6 @@
+---
+- name: replace line CACHESIZE
+  lineinfile:
+    path: /var/lib/config-data/memcached/etc/sysconfig/memcached
+    regexp: 'CACHESIZE*'
+    line: 'CACHESIZE="48308"'

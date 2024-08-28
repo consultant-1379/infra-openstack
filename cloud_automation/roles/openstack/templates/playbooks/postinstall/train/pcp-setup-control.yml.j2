@@ -1,0 +1,35 @@
+#jinja2: lstrip_blocks: "True", trim_blocks: "True"
+---
+- name: Copy train repo to controller
+  copy:
+    src: {{ "train_16.2.6.repo" if rhosp_release == "16.2.6" else "train.repo" }}
+    dest: /etc/yum.repos.d/train.repo
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Ensure Performance Co-Pilot is installed.
+  package:
+    name:
+      - pcp-zeroconf
+    state: present
+
+- name: Ensure the interval changed to 10s
+  replace:
+    dest: /etc/pcp/pmlogger/control.d/local
+    regexp: '^LOCALHOSTNAME '
+    replace: 'LOCALHOSTNAME   y   n   PCP_LOG_DIR/pmlogger/LOCALHOSTNAME      -r -T24h10m -c config.default -v 100Mb -t 10s'
+
+- name: Set pcs resource op default timeout to 120s
+  shell: pcs resource op defaults timeout=120s
+  run_once: true
+
+- name: Start and enable pmlogger services
+  service:{% raw %}
+    name: "{{service}}"
+  {% endraw %}
+    state: started
+    enabled: yes
+  loop: [pmlogger, pmlogger_daily_report.timer, pmlogger_daily_report-poll.timer]
+  loop_control:
+    loop_var: service

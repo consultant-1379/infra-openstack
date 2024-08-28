@@ -1,0 +1,20 @@
+---
+  switches:
+    distribution:
+      host:
+        - name: [ieatp100sd001, ieatp0ds001]
+    storage:
+      host:
+        - name: [ieatp100st001, ieatp100st002]
+          untag_ports: []
+          tag_ports: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35]
+    edge:
+      host:
+        - name: [ieatp0es045, ieatp0es046]
+          director_ports: []
+          untag_ports: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35]
+          tag_ports: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35]
+          lacp_ports: []
+  vars: {st_sd_vlans: [{'P100-OpStk-16-Storage': '400'}, {'P100-OpStk-16-Storage-Mgt': '401'}, {'P100-OpStk-16-Storage-NFS': '402'}],
+          es_vlans: [{'P0-OpStk-16-Tenant-VXLAN': '607'}, {'P0-OpStk-16-Internal-API': '604'}, {'P0-OpStk-16-Provisioning': '605'},
+                      {'P0-OpStk-16-Floating ': '620'}, {'P0-OpStk-16-Public-Tenant': '608'}]}

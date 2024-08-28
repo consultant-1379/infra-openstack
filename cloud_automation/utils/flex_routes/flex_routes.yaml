@@ -1,0 +1,54 @@
+---
+- hosts: "{{flex_sys}}"
+  gather_facts: no
+  become: yes
+  user: root
+  vars_prompt:
+    - name: flex_sys
+      prompt: "Enter flex group (flex_sys_1 or flex_sys_2) \n"
+      private: no
+    - name: cloud
+      prompt: "Enter cloud name e.g. cloud12a \n"
+      private: no
+  vars_files:
+    - password.yaml
+    - flex_clouds.yaml
+  pre_tasks:
+    - name: Validate cloud name
+      assert:
+        that: cloud is defined and cloud in systems.keys()
+        fail_msg: Not a valid cloud name
+  tasks:
+    - name: SSH-Copy-ID to a host
+      shell: "sshpass -e ssh-copy-id -i ~/.ssh/id_rsa.pub -o StrictHostKeyChecking=no root@{{inventory_hostname}}"
+      environment: 
+        SSHPASS: "{{ flex_pass }}"
+      delegate_to: localhost
+      become: no
+
+    - name: Update routes for interface 1
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/route-ens1f0
+        line: "{{systems[cloud]['storage_networks'][0]}} via {{data_A_gateway}} dev ens1f0"
+
+    - name: Update routes for interface 8
+      lineinfile:
+        dest: /etc/sysconfig/network-scripts/route-ens8f0
+        line: "{{systems[cloud]['storage_networks'][1]}} via {{data_B_gateway}} dev ens8f0"
+
+    - name: Add ip route
+      shell: "{{ip_add}}"
+      loop:
+        - "ip route add {{systems[cloud]['storage_networks'][0]}} via {{data_A_gateway}} dev ens1f0"
+        - "ip route add {{systems[cloud]['storage_networks'][1]}} via {{data_B_gateway}} dev ens8f0"
+      loop_control:
+        loop_var: ip_add
+      ignore_errors: yes
+
+    - name: Add route to network manager
+      shell: nmcli con load /etc/sysconfig/network-scripts/"{{file_name}}"
+      loop:
+        - ifcfg-ens1f0
+        - ifcfg-ens8f0
+      loop_control:
+        loop_var: file_name

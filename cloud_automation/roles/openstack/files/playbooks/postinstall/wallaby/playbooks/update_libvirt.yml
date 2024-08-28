@@ -1,0 +1,7 @@
+---
+  - name: set debug logging for libvirtd
+    replace:
+      dest: /var/lib/config-data/puppet-generated/nova_libvirt/etc/libvirt/libvirtd.conf
+      regexp: 'log_outputs="3:file:/var/log/libvirt/libvirtd.log"'
+      replace: 'log_outputs="1:file:/var/log/libvirt/libvirtd.log"'
+      backup: yes
